@@ -1,294 +1,228 @@
-// Pearl Ledger · 珍珠账本
-// SillyTavern Extension
+https://github.com/secure-oo/pearl-ledge
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Little Pearl - ST Extension Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #FDFBF9;
+            --accent: #7a3a4e;
+            --accent-light: #b87882;
+            --text: #281e20;
+            --text-secondary: #7a6568;
+            --card-bg: #ffffff;
+            --me-bubble: #e8c4b8;
+            --dad-bubble: #ffffff;
+            --border: rgba(40,30,32,0.08);
+            --radius: 20px;
+        }
 
-(function () {
-  'use strict';
+        /* 核心调整：允许插件容器滚动，不要锁死高度 */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            background: transparent; /* 背景透明，适配插件窗口 */
+            font-family: 'Noto Serif SC', serif; 
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
 
-  const STORAGE_KEY = 'pearl_ledger_records';
-  const EXT_NAME = '珍珠账本';
+        /* 模拟手机容器改为自适应容器 */
+        #phone {
+            width: 100%;
+            max-width: 500px; /* 稍微放宽，适配不同尺寸的弹窗 */
+            margin: 0 auto;
+            background: var(--bg);
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.1);
+            /* 给顶部的拖拽条留出 30px 的空隙，防止点不到关闭/移动 */
+            margin-top: 30px; 
+            border-radius: 15px 15px 0 0;
+        }
 
-  // ── Load & Save ──────────────────────────────────────────
-  function loadRecords() {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    } catch {
-      return [];
+        /* 状态栏：在插件里主要起装饰作用 */
+        .status-bar {
+            height: 30px;
+            padding: 0 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        .screen {
+            position: absolute;
+            inset: 0;
+            background: var(--bg);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+        
+        .screen.hide { transform: translateX(100%); pointer-events: none; }
+
+        /* --- 首页特定样式 --- */
+        #s-home { 
+            background: linear-gradient(172deg, #1c0f13 0%, #130a0d 100%); 
+            color: white; 
+            z-index: 5; /* 首页层级最低 */
+        }
+        .home-clock { text-align: center; margin: 40px 0; }
+        .clock-t { font-family: 'ZCOOL XiaoWei', serif; font-size: 60px; }
+        
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            padding: 20px;
+            margin-top: auto;
+            margin-bottom: 60px;
+        }
+        .app-item { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+        .app-icon {
+            width: 55px; height: 55px;
+            border-radius: 15px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+        }
+
+        /* --- 导航栏：增加关闭交互 --- */
+        .nav-bar {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+        }
+        .nav-back { font-size: 24px; cursor: pointer; color: var(--accent); width: 30px; }
+        
+        .chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.5; }
+        .msg.dad { align-self: flex-start; background: var(--dad-bubble); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .msg.me { align-self: flex-end; background: var(--me-bubble); }
+
+        .input-bar {
+            padding: 10px 15px 20px;
+            display: flex; gap: 8px;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+        }
+        .input-bar input {
+            flex: 1; border: 1px solid var(--border);
+            padding: 10px 15px; border-radius: 20px; outline: none;
+        }
+        .btn-send { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: white; border: none; cursor: pointer; }
+
+        #loading {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.8);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+
+        /* 适配 SillyTavern 的关闭提示 */
+        .close-hint {
+            text-align: center; font-size: 10px; color: #999; padding: 10px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="phone">
+    <div id="loading">思考中...</div>
+
+    <div class="screen" id="s-setup">
+        <div style="padding: 30px;">
+            <h2 style="font-family:'ZCOOL XiaoWei'; text-align:center; margin-bottom:20px;">系统配置</h2>
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                <input id="cfg-url" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px;" type="text" placeholder="API 地址">
+                <input id="cfg-key" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px;" type="password" placeholder="API Key">
+                <button onclick="saveConfig()" style="background:var(--accent); color:white; padding:15px; border:none; border-radius:8px; cursor:pointer;">保存并进入</button>
+                <div class="close-hint" onclick="window.parent.postMessage('close_external_extension', '*')">点此尝试关闭插件窗口</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="screen hide" id="s-home">
+        <div class="status-bar">
+            <span id="st-time">12:00</span>
+            <span>SIM 🔋</span>
+        </div>
+        <div class="home-clock">
+            <div class="clock-t" id="clock-t">12:00</div>
+            <div style="font-size:12px; opacity:0.6;">Welcome back, Pearl.</div>
+        </div>
+        <div class="app-grid">
+            <div class="app-item" onclick="showScreen('chat')">
+                <div class="app-icon" style="background: linear-gradient(135deg, #7a3a4e, #c07888);">💬</div>
+                <span>聊天</span>
+            </div>
+            <div class="app-item" onclick="showScreen('ledger')">
+                <div class="app-icon" style="background: linear-gradient(135deg, #5a3a1a, #a87038);">📊</div>
+                <span>记账</span>
+            </div>
+            <div class="app-item" onclick="showScreen('letters')">
+                <div class="app-icon" style="background: linear-gradient(135deg, #3a2850, #7a50a0);">💌</div>
+                <span>情书</span>
+            </div>
+        </div>
+        <div style="text-align:center; padding-bottom:30px; opacity:0.4; font-size:11px;" onclick="showScreen('setup')">⚙ 偏好设置</div>
+    </div>
+
+    </div>
+
+<script>
+    let state = {
+        config: JSON.parse(localStorage.getItem('prl_cfg') || '{"url":"","key":"","model":"gpt-4o"}'),
+        chats: JSON.parse(localStorage.getItem('prl_chats') || '[]'),
+        expenses: JSON.parse(localStorage.getItem('prl_exps') || '[]'),
+        letters: JSON.parse(localStorage.getItem('prl_ltrs') || '[]')
+    };
+
+    function save() {
+        localStorage.setItem('prl_cfg', JSON.stringify(state.config));
+        localStorage.setItem('prl_chats', JSON.stringify(state.chats.slice(-30)));
+        localStorage.setItem('prl_exps', JSON.stringify(state.expenses));
+        localStorage.setItem('prl_ltrs', JSON.stringify(state.letters));
     }
-  }
 
-  function saveRecords(records) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  }
-
-  function genId() {
-    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  }
-
-  // ── Format helpers ───────────────────────────────────────
-  function formatDate(iso) {
-    const d = new Date(iso);
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function buildSummary(records) {
-    if (!records.length) return '【珍珠账本】暂无记录 · No records yet.';
-    const income = records.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-    const expense = records.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
-    const balance = income - expense;
-    const recent = [...records].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-    const lines = recent.map(r => {
-      const sign = r.type === 'income' ? '＋' : '－';
-      const label = r.type === 'income' ? '收入' : '支出';
-      return `${formatDate(r.date)} ${sign}¥${r.amount} [${label}]${r.note ? ' · ' + r.note : ''}`;
-    });
-    return `【珍珠账本 · Pearl Ledger】\n收入 Income: ¥${income}\n支出 Expense: ¥${expense}\n结余 Balance: ¥${balance}\n\n最近记录 Recent:\n${lines.join('\n')}`;
-  }
-
-  // ── Modal HTML ───────────────────────────────────────────
-  function buildModalHTML() {
-    return `
-<div id="pl-overlay" class="pl-overlay">
-  <div class="pl-modal">
-    <div class="pl-header">
-      <div class="pl-title-block">
-        <span class="pl-title-cn">珍珠账本</span>
-        <span class="pl-title-en">Pearl Ledger</span>
-      </div>
-      <button class="pl-close" id="pl-close">✕</button>
-    </div>
-
-    <div class="pl-summary-bar" id="pl-summary-bar">
-      <div class="pl-sum-item">
-        <span class="pl-sum-label">收入 Income</span>
-        <span class="pl-sum-val income" id="pl-total-income">¥0</span>
-      </div>
-      <div class="pl-sum-divider"></div>
-      <div class="pl-sum-item">
-        <span class="pl-sum-label">支出 Expense</span>
-        <span class="pl-sum-val expense" id="pl-total-expense">¥0</span>
-      </div>
-      <div class="pl-sum-divider"></div>
-      <div class="pl-sum-item">
-        <span class="pl-sum-label">结余 Balance</span>
-        <span class="pl-sum-val balance" id="pl-balance">¥0</span>
-      </div>
-    </div>
-
-    <div class="pl-form">
-      <div class="pl-type-toggle">
-        <button class="pl-type-btn active" id="pl-btn-expense" data-type="expense">支出 Expense</button>
-        <button class="pl-type-btn" id="pl-btn-income" data-type="income">收入 Income</button>
-      </div>
-      <div class="pl-inputs">
-        <div class="pl-input-group">
-          <label class="pl-label">金额 Amount</label>
-          <div class="pl-amount-wrap">
-            <span class="pl-currency">¥</span>
-            <input class="pl-input" id="pl-amount" type="number" min="0" step="0.01" placeholder="0.00" />
-          </div>
-        </div>
-        <div class="pl-input-group">
-          <label class="pl-label">备注 Note</label>
-          <input class="pl-input" id="pl-note" type="text" placeholder="买了什么 / 赚了什么…" maxlength="50" />
-        </div>
-      </div>
-      <button class="pl-add-btn" id="pl-add-btn">记录 · Add</button>
-    </div>
-
-    <div class="pl-list-header">
-      <span>明细 · Records</span>
-      <span class="pl-list-count" id="pl-list-count">0 条</span>
-    </div>
-    <div class="pl-list" id="pl-list"></div>
-
-    <div class="pl-footer">
-      <button class="pl-send-btn" id="pl-send-btn">📤 发给爸爸看 · Share to Chat</button>
-    </div>
-  </div>
-</div>`;
-  }
-
-  // ── Render list ──────────────────────────────────────────
-  function renderList() {
-    const records = loadRecords();
-    const listEl = document.getElementById('pl-list');
-    const countEl = document.getElementById('pl-list-count');
-    if (!listEl) return;
-
-    countEl.textContent = `${records.length} 条`;
-
-    const income = records.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-    const expense = records.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
-    document.getElementById('pl-total-income').textContent = `¥${income.toFixed(2)}`;
-    document.getElementById('pl-total-expense').textContent = `¥${expense.toFixed(2)}`;
-    const bal = income - expense;
-    const balEl = document.getElementById('pl-balance');
-    balEl.textContent = `¥${bal.toFixed(2)}`;
-    balEl.className = 'pl-sum-val balance ' + (bal >= 0 ? 'pos' : 'neg');
-
-    if (!records.length) {
-      listEl.innerHTML = `<div class="pl-empty">还没有记录呢 · No records yet</div>`;
-      return;
+    // 路由切换
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hide'));
+        const target = document.getElementById('s-' + id);
+        if(target) target.classList.remove('hide');
     }
 
-    const sorted = [...records].sort((a, b) => b.date.localeCompare(a.date));
-    listEl.innerHTML = sorted.map(r => `
-      <div class="pl-record ${r.type}" data-id="${r.id}">
-        <div class="pl-rec-left">
-          <span class="pl-rec-tag ${r.type}">${r.type === 'income' ? '收入' : '支出'}</span>
-          <span class="pl-rec-note">${r.note || '—'}</span>
-        </div>
-        <div class="pl-rec-right">
-          <span class="pl-rec-amount ${r.type}">${r.type === 'income' ? '+' : '-'}¥${Number(r.amount).toFixed(2)}</span>
-          <span class="pl-rec-date">${formatDate(r.date)}</span>
-          <button class="pl-del-btn" data-id="${r.id}" title="删除">×</button>
-        </div>
-      </div>
-    `).join('');
-
-    listEl.querySelectorAll('.pl-del-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.id;
-        const updated = loadRecords().filter(r => r.id !== id);
-        saveRecords(updated);
-        renderList();
-      });
-    });
-  }
-
-  // ── Open / Close modal ───────────────────────────────────
-  let currentType = 'expense';
-
-  function openModal() {
-    if (document.getElementById('pl-overlay')) return;
-    document.body.insertAdjacentHTML('beforeend', buildModalHTML());
-    renderList();
-
-    document.getElementById('pl-close').addEventListener('click', closeModal);
-    document.getElementById('pl-overlay').addEventListener('click', (e) => {
-      if (e.target.id === 'pl-overlay') closeModal();
-    });
-
-    // Type toggle
-    document.getElementById('pl-btn-expense').addEventListener('click', () => setType('expense'));
-    document.getElementById('pl-btn-income').addEventListener('click', () => setType('income'));
-
-    // Add record
-    document.getElementById('pl-add-btn').addEventListener('click', addRecord);
-
-    // Send to chat
-    document.getElementById('pl-send-btn').addEventListener('click', sendToChat);
-
-    // Animate in
-    requestAnimationFrame(() => {
-      document.getElementById('pl-overlay').classList.add('visible');
-    });
-  }
-
-  function closeModal() {
-    const overlay = document.getElementById('pl-overlay');
-    if (!overlay) return;
-    overlay.classList.remove('visible');
-    overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
-  }
-
-  function setType(type) {
-    currentType = type;
-    document.querySelectorAll('.pl-type-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`pl-btn-${type}`).classList.add('active');
-  }
-
-  function addRecord() {
-    const amountEl = document.getElementById('pl-amount');
-    const noteEl = document.getElementById('pl-note');
-    const amount = parseFloat(amountEl.value);
-    if (!amount || amount <= 0) {
-      amountEl.classList.add('shake');
-      setTimeout(() => amountEl.classList.remove('shake'), 500);
-      return;
+    function saveConfig() {
+        state.config.url = document.getElementById('cfg-url').value.trim();
+        state.config.key = document.getElementById('cfg-key').value.trim();
+        if(!state.config.key) return alert('请填写 Key');
+        save();
+        showScreen('home');
     }
-    const records = loadRecords();
-    records.push({
-      id: genId(),
-      type: currentType,
-      amount: amount,
-      note: noteEl.value.trim(),
-      date: new Date().toISOString()
-    });
-    saveRecords(records);
-    amountEl.value = '';
-    noteEl.value = '';
-    renderList();
 
-    const btn = document.getElementById('pl-add-btn');
-    btn.textContent = '已记录 ✓';
-    btn.classList.add('success');
-    setTimeout(() => {
-      btn.textContent = '记录 · Add';
-      btn.classList.remove('success');
-    }, 1200);
-  }
+    // 初始化：如果有 Key 就直接进首页，没有就留设置页
+    if(state.config.key) showScreen('home');
 
-  function sendToChat() {
-    const records = loadRecords();
-    const summary = buildSummary(records);
-    const textarea = document.querySelector('#send_textarea');
-    if (!textarea) return;
-    textarea.value = summary;
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    const sendBtn = document.querySelector('#send_but');
-    if (sendBtn) sendBtn.click();
-    closeModal();
-  }
+    // 自动更新时间
+    setInterval(() => {
+        const now = new Date();
+        const t = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
+        document.getElementById('st-time').innerText = t;
+        if(document.getElementById('clock-t')) document.getElementById('clock-t').innerText = t;
+    }, 1000);
+</script>
 
-  // ── Inject entry button ──────────────────────────────────
-  function injectButton() {
-    if (document.getElementById('pl-open-btn')) return;
+</body>
+</html>
 
-    // Try to find extensions panel area
-    const target = document.querySelector('#extensionsMenuButton') || document.querySelector('#top-settings-holder');
-    if (!target) return;
-
-    const btn = document.createElement('div');
-    btn.id = 'pl-open-btn';
-    btn.className = 'pl-top-btn';
-    btn.title = '珍珠账本 · Pearl Ledger';
-    btn.innerHTML = `<span class="pl-top-icon">₿</span>`;
-    btn.addEventListener('click', openModal);
-
-    target.parentNode.insertBefore(btn, target);
-  }
-
-  // Also add to extensions settings panel
-  function injectExtPanel() {
-    const panel = document.querySelector('#extensions_settings');
-    if (!panel || document.getElementById('pl-ext-panel')) return;
-
-    const div = document.createElement('div');
-    div.id = 'pl-ext-panel';
-    div.innerHTML = `
-      <div class="pl-ext-entry">
-        <span class="pl-ext-name">珍珠账本 · Pearl Ledger</span>
-        <button class="pl-ext-open-btn" id="pl-ext-open-btn">打开 · Open</button>
-      </div>`;
-    panel.prepend(div);
-    document.getElementById('pl-ext-open-btn').addEventListener('click', openModal);
-  }
-
-  // ── Init ─────────────────────────────────────────────────
-  function init() {
-    injectButton();
-    injectExtPanel();
-    // Retry in case DOM isn't ready
-    setTimeout(() => {
-      injectButton();
-      injectExtPanel();
-    }, 2000);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-})();
