@@ -1,0 +1,12 @@
+{
+  "display_name": "珍珠账本 · Pearl Ledger",
+  "loading_order": 10,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "pearl",
+  "version": "1.0.0",
+  "homePage": "",
+  "auto_update": true
+}
