@@ -318,7 +318,7 @@
   }
 
   function restorePos(win){
-    try{ const p=JSON.parse(localStorage.getItem(POS_KEY)||'null'); if(p&&p.l&&p.t){win.style.left=p.l;win.style.top=p.t;win.style.right='auto';win.style.bottom='auto';} }catch{}
+    try{ const p=JSON.parse(localStorage.getItem(POS_KEY)||'null'); if(p&&p.l&&p.t){win.style.left=p.l;win.style.top=p.t;win.style.right='auto';win.style.bottom='auto';} }catch(e){}
   }
 
   /* ── open / close window ──────────────────────────── */
