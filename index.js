@@ -1,8 +1,7 @@
-// iCost · 我的账本  v7.0  — tags · month filter · budget · resilient
+// iCost · 我的账本  v7.1  — minimalist MUJI style · clean tags
 (function () {
   'use strict';
 
-  // ── 防御性包装：任何内部错误都不影响酒馆正常运行 ────────────
   function safe(fn) {
     return function () {
       try { return fn.apply(this, arguments); }
@@ -16,7 +15,8 @@
   const TAG_KEY    = 'icost_tags_v1';
   const BUDGET_KEY = 'icost_budget_v1';
 
-  const DEFAULT_TAGS = ['Entertainment'];
+  // --- 修改：这里默认只保留 Food ---
+  const DEFAULT_TAGS = ['Food'];
 
   let curType    = 'expense';
   let winVisible = false;
@@ -25,7 +25,6 @@
   let curTag     = '';
   let curMonth   = monthKey(new Date());
 
-  /* ── month helpers ───────────────────────────────── */
   function monthKey(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   }
@@ -39,7 +38,6 @@
     return monthKey(new Date(y,m,1));
   }
 
-  /* ── storage ─────────────────────────────────────── */
   function load()       { try{return JSON.parse(localStorage.getItem(REC_KEY)||'[]');}catch(e){return[];} }
   function save(r)      { try{localStorage.setItem(REC_KEY,JSON.stringify(r));}catch(e){} }
   function uid()        { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
@@ -50,7 +48,6 @@
   function loadBudget() { try{return parseFloat(localStorage.getItem(BUDGET_KEY)||'0')||0;}catch(e){return 0;} }
   function saveBudget(v){ try{localStorage.setItem(BUDGET_KEY,String(v));}catch(e){} }
 
-  /* ── build window ────────────────────────────────── */
   function buildWin(){
     const w=document.createElement('div');
     w.id='ic-win';
@@ -58,7 +55,7 @@
       <div id="ic-bar">
         <div class="ic-titles">
           <span class="ic-cn">iCost</span>
-          <span class="ic-en" id="ic-en-sub">我的账本</span>
+          <span class="ic-en" id="ic-en-sub">Daily Ledger</span>
         </div>
         <div class="ic-bar-right">
           <span class="ic-hint" id="ic-hint">▾</span>
@@ -68,15 +65,14 @@
       <div id="ic-body">
         <div class="ic-summary">
           <div class="ic-sum-bal">
-            <span class="ic-sum-bal-label">结余 Balance</span>
-            <span class="ic-bal-big ic-green" id="ic-bal">¥0.00</span>
+            <span class="ic-sum-bal-label">本月结余 / Balance</span>
+            <span class="ic-bal-big" id="ic-bal">¥0.00</span>
           </div>
           <div class="ic-sum-sub">
             <div class="ic-sum-sub-item">
               <span class="ic-sum-sub-label">收入 Income</span>
               <span class="ic-sum-sub-val ic-green" id="ic-inc">¥0.00</span>
             </div>
-            <div class="ic-sum-sub-divider"></div>
             <div class="ic-sum-sub-item">
               <span class="ic-sum-sub-label">支出 Expense</span>
               <span class="ic-sum-sub-val ic-red" id="ic-exp">¥0.00</span>
@@ -102,18 +98,16 @@
             <button class="ic-tb ic-tb-inc"        id="ic-tb-inc">收入 Income</button>
           </div>
           <div class="ic-field">
-            <label class="ic-lbl">金额 Amount</label>
             <div class="ic-arow">
               <span class="ic-yen">¥</span>
               <input id="ic-amt" class="ic-inp" type="number" min="0" step="0.01" placeholder="0.00">
             </div>
           </div>
           <div class="ic-field">
-            <label class="ic-lbl">备注 Note</label>
-            <input id="ic-note" class="ic-ninp" type="text" placeholder="买了什么 / 赚了什么…" maxlength="60">
+            <input id="ic-note" class="ic-ninp" type="text" placeholder="备注 Note..." maxlength="60">
           </div>
           <div class="ic-tags-wrap" id="ic-tags-wrap"></div>
-          <button class="ic-addbtn" id="ic-addbtn">记录 · Add</button>
+          <button class="ic-addbtn" id="ic-addbtn">记录 · Save</button>
         </div>
 
         <div class="ic-rechd" id="ic-rechd">
@@ -132,7 +126,7 @@
         <div class="ic-foot">
           <input id="ic-share-note" class="ic-share-note" type="text" placeholder="加一句话（可选）…" maxlength="100" style="display:none">
           <div class="ic-share-btns">
-            <button class="ic-share" id="ic-share">📤 发给他看</button>
+            <button class="ic-share" id="ic-share">📤 发送账单</button>
             <button class="ic-share-cancel" id="ic-share-cancel" style="display:none">取消</button>
           </div>
         </div>
@@ -140,17 +134,14 @@
     return w;
   }
 
-  /* ── tags ────────────────────────────────────────── */
   function renderTags(){
     const wrap=document.getElementById('ic-tags-wrap'); if(!wrap) return;
     const tags=loadTags();
     wrap.innerHTML='';
-
     tags.forEach(tag=>{
       const chip=document.createElement('button');
       chip.className='ic-chip'+(curTag===tag?' ic-chip-active ic-chip-active-'+curType:'');
       chip.textContent=tag;
-
       chip.addEventListener('click',e=>{
         e.stopPropagation();
         if(curTag===tag){ curTag=''; }
@@ -161,7 +152,6 @@
         }
         renderTags();
       });
-
       let lpt;
       const startLong=()=>{ lpt=setTimeout(()=>deleteTag(tag),650); };
       const clearLong=()=>clearTimeout(lpt);
@@ -171,10 +161,8 @@
       chip.addEventListener('mousedown',startLong);
       chip.addEventListener('mouseup',clearLong);
       chip.addEventListener('mouseleave',clearLong);
-
       wrap.appendChild(chip);
     });
-
     const addBtn=document.createElement('button');
     addBtn.className='ic-chip ic-chip-add';
     addBtn.textContent='＋';
@@ -186,7 +174,7 @@
     if(document.getElementById('ic-tag-inp')) return;
     const inp=document.createElement('input');
     inp.id='ic-tag-inp'; inp.className='ic-tag-inp';
-    inp.placeholder='标签名…'; inp.maxLength=5;
+    inp.placeholder='Name'; inp.maxLength=5;
     wrap.insertBefore(inp,addBtn); inp.focus();
     function commit(){
       const val=inp.value.trim();
@@ -198,13 +186,12 @@
   }
 
   function deleteTag(tag){
-    if(!confirm(`长按确认：删除标签「${tag}」？`)) return;
+    if(!confirm(`删除标签「${tag}」？`)) return;
     saveTags(loadTags().filter(t=>t!==tag));
     if(curTag===tag) curTag='';
     renderTags();
   }
 
-  /* ── budget ──────────────────────────────────────── */
   function renderBudget(exp){
     const budget=loadBudget();
     const bwrap =document.getElementById('ic-budget-wrap');
@@ -212,32 +199,25 @@
     const fill  =document.getElementById('ic-budget-fill');
     const label =document.getElementById('ic-budget-label');
     if(!bwrap||!bunset) return;
-
-    if(!budget){
-      bwrap.style.display='none';
-      bunset.style.display='flex';
-      return;
-    }
-    bwrap.style.display='flex';
-    bunset.style.display='none';
+    if(!budget){ bwrap.style.display='none'; bunset.style.display='flex'; return; }
+    bwrap.style.display='flex'; bunset.style.display='none';
     const pct=Math.min(exp/budget*100,100);
     if(fill){
       fill.style.width=pct+'%';
       fill.className='ic-budget-bar-fill '+(pct>=90?'ic-bud-red':pct>=70?'ic-bud-yellow':'ic-bud-green');
     }
-    if(label) label.textContent=`支出 ¥${exp.toFixed(0)} / 预算 ¥${budget.toFixed(0)}`;
+    if(label) label.textContent=`Used: ¥${exp.toFixed(0)} / ¥${budget.toFixed(0)}`;
   }
 
   function openBudgetInput(){
     const cur=loadBudget();
-    const val=prompt(`设置本月支出预算\n当前：${cur?'¥'+cur:'未设置'}\n清空或填0可取消预算`,cur||'');
+    const val=prompt(`设置月度支出预算\n当前：${cur?'¥'+cur:'未设置'}`,cur||'');
     if(val===null) return;
     const num=parseFloat(val);
     saveBudget(!isNaN(num)&&num>0?num:0);
     render();
   }
 
-  /* ── set type ────────────────────────────────────── */
   function setType(t){
     curType=t;
     const form=document.getElementById('ic-form'); if(!form) return;
@@ -245,42 +225,32 @@
     document.getElementById('ic-tb-exp').className='ic-tb ic-tb-exp'+(t==='expense'?' active':'');
     document.getElementById('ic-tb-inc').className='ic-tb ic-tb-inc'+(t==='income'?' active':'');
     const btn=document.getElementById('ic-addbtn');
-    if(editingId&&btn) btn.textContent='保存修改 · Save';
+    if(editingId&&btn) btn.textContent='保存修改';
     renderTags();
   }
 
-  /* ── render ──────────────────────────────────────── */
   function render(){
     const allRecs=load();
     const list=document.getElementById('ic-list'); if(!list) return;
-
     const recs=allRecs.filter(r=>r.date&&r.date.startsWith(curMonth));
     const inc=recs.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
     const exp=recs.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
     const bal=inc-exp;
-
     document.getElementById('ic-inc').textContent=`¥${inc.toFixed(2)}`;
     document.getElementById('ic-exp').textContent=`¥${exp.toFixed(2)}`;
     const bel=document.getElementById('ic-bal');
     bel.textContent=(bal<0?'-¥':'¥')+Math.abs(bal).toFixed(2);
     bel.className='ic-bal-big '+(bal>=0?'ic-green':'ic-red');
-
-    document.getElementById('ic-cnt').textContent=`${recs.length} 条`;
+    document.getElementById('ic-cnt').textContent=`${recs.length} 条记录`;
     const ml=document.getElementById('ic-month-label');
     if(ml) ml.textContent=monthLabel(curMonth);
-
     const nb=document.getElementById('ic-month-next');
     if(nb) nb.disabled=curMonth>=monthKey(new Date());
-
     renderBudget(exp);
-
-    if(!recs.length){ list.innerHTML=`<p class="ic-empty">本月暂无记录</p>`; return; }
-
+    if(!recs.length){ list.innerHTML=`<p class="ic-empty">No records this month</p>`; return; }
     list.innerHTML=[...recs].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`
       <div class="ic-row ic-row-${r.type}" data-id="${r.id}">
-        <div class="ic-row-actions">
-          <button class="ic-edit-action" data-id="${r.id}">编辑</button>
-        </div>
+        <div class="ic-row-actions"><button class="ic-edit-action" data-id="${r.id}">Edit</button></div>
         <div class="ic-row-content">
           <div class="ic-rl">
             <div class="ic-type-dot ic-dot-${r.type}">${r.type==='income'?'收':'支'}</div>
@@ -296,7 +266,6 @@
           </div>
         </div>
       </div>`).join('');
-
     list.querySelectorAll('.ic-row').forEach(row=>attachSwipe(row));
     list.querySelectorAll('.ic-del').forEach(b=>{
       b.addEventListener('click',e=>{
@@ -311,7 +280,6 @@
     });
   }
 
-  /* ── swipe ───────────────────────────────────────── */
   function attachSwipe(row){
     const content=row.querySelector('.ic-row-content'); if(!content) return;
     let startX=0,startY=0,active=false,revealed=false;
@@ -339,7 +307,6 @@
     },{passive:true});
   }
 
-  /* ── edit ────────────────────────────────────────── */
   function startEdit(id){
     const rec=load().find(r=>r.id===id); if(!rec) return;
     editingId=id; setType(rec.type);
@@ -347,7 +314,7 @@
     document.getElementById('ic-note').value=rec.note||'';
     curTag=rec.tag||''; renderTags();
     const btn=document.getElementById('ic-addbtn');
-    btn.textContent='保存修改 · Save'; btn.classList.add('ic-addbtn-edit');
+    btn.textContent='保存修改'; btn.classList.add('ic-addbtn-edit');
     document.getElementById('ic-amt').focus();
   }
   function cancelEdit(){
@@ -356,11 +323,10 @@
     document.getElementById('ic-note').value='';
     curTag='';
     const btn=document.getElementById('ic-addbtn');
-    btn.textContent='记录 · Add'; btn.classList.remove('ic-addbtn-edit');
+    btn.textContent='记录 · Save'; btn.classList.remove('ic-addbtn-edit');
     renderTags();
   }
 
-  /* ── add / save ──────────────────────────────────── */
   function addRecord(){
     const ae=document.getElementById('ic-amt');
     const ne=document.getElementById('ic-note');
@@ -375,12 +341,11 @@
     }
     save(recs); ae.value=''; ne.value=''; curTag='';
     const btn=document.getElementById('ic-addbtn');
-    btn.textContent='已保存 ✓'; btn.classList.remove('ic-addbtn-edit'); btn.classList.add('ic-addbtn-ok');
-    setTimeout(()=>{ btn.textContent='记录 · Add'; btn.classList.remove('ic-addbtn-ok'); },1500);
+    btn.textContent='✓ 已保存'; btn.classList.remove('ic-addbtn-edit'); btn.classList.add('ic-addbtn-ok');
+    setTimeout(()=>{ btn.textContent='记录 · Save'; btn.classList.remove('ic-addbtn-ok'); },1500);
     renderTags(); render();
   }
 
-  /* ── capsule ─────────────────────────────────────── */
   function applyCapsule(){
     const c=getCol(),body=document.getElementById('ic-body'),
           hint=document.getElementById('ic-hint'),sub=document.getElementById('ic-en-sub'),
@@ -400,7 +365,6 @@
     if(arr) arr.textContent=c.records?'▸':'▾';
   }
 
-  /* ── drag ────────────────────────────────────────── */
   function enableDrag(win){
     const bar=document.getElementById('ic-bar');
     let dragging=false,ox=0,oy=0,sx=0,sy=0,moved=false;
@@ -440,37 +404,35 @@
     }catch(e){}
   }
 
-  /* ── open / close ────────────────────────────────── */
   function openWin(){
     const w=document.getElementById('ic-win'); if(!w) return;
     winVisible=true; w.style.display='flex';
     requestAnimationFrame(()=>w.classList.add('ic-visible'));
     render(); renderTags(); applyCapsule(); applyRecCollapse();
     const lb=document.getElementById('ic-panel-toggle');
-    if(lb){lb.textContent='关闭 · Close';lb.classList.add('ic-ext-btn-open');}
+    if(lb){lb.textContent='关闭账本';lb.classList.add('ic-ext-btn-open');}
   }
   function closeWin(){
     const w=document.getElementById('ic-win'); if(!w) return;
     winVisible=false; w.classList.remove('ic-visible');
     w.addEventListener('transitionend',()=>{ if(!winVisible) w.style.display='none'; },{once:true});
     const lb=document.getElementById('ic-panel-toggle');
-    if(lb){lb.textContent='打开 · Open';lb.classList.remove('ic-ext-btn-open');}
+    if(lb){lb.textContent='打开账本';lb.classList.remove('ic-ext-btn-open');}
   }
   function toggleWin(){ winVisible?closeWin():openWin(); }
 
-  /* ── share ───────────────────────────────────────── */
   function cancelShare(){
     shareStep=0;
     const ne=document.getElementById('ic-share-note'),btn=document.getElementById('ic-share'),cb=document.getElementById('ic-share-cancel');
     if(ne){ne.style.display='none';ne.value='';}
-    if(btn){btn.textContent='📤 发给他看';btn.classList.remove('ic-share-confirm');}
+    if(btn){btn.textContent='📤 发送账单';btn.classList.remove('ic-share-confirm');}
     if(cb) cb.style.display='none';
   }
   function share(){
     const ne=document.getElementById('ic-share-note'),btn=document.getElementById('ic-share'),cb=document.getElementById('ic-share-cancel');
     if(shareStep===0){
       if(ne){ne.style.display='block';ne.focus();}
-      if(btn){btn.textContent='✓ 确认发送给他';btn.classList.add('ic-share-confirm');}
+      if(btn){btn.textContent='✓ 确认发送';btn.classList.add('ic-share-confirm');}
       if(cb) cb.style.display='block';
       shareStep=1; return;
     }
@@ -478,7 +440,6 @@
     if(ne) ne.style.display='none';
     if(btn) btn.classList.remove('ic-share-confirm');
     if(cb) cb.style.display='none';
-
     const recs=load();
     const inc=recs.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
     const exp=recs.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
@@ -493,10 +454,9 @@
     if(ne) ne.value='';
     setTimeout(()=>{ const s=document.querySelector('#send_but'); if(s) s.click(); },120);
     if(btn){btn.textContent='已发送 ✓';btn.classList.add('ic-share-ok');}
-    setTimeout(()=>{ if(btn){btn.textContent='📤 发给他看';btn.classList.remove('ic-share-ok');} },1800);
+    setTimeout(()=>{ if(btn){btn.textContent='📤 发送账单';btn.classList.remove('ic-share-ok');} },1800);
   }
 
-  /* ── extension panel ─────────────────────────────── */
   function injectPanel(){
     if(document.getElementById('ic-ext-section')) return;
     const target=document.getElementById('extensions_settings'); if(!target) return;
@@ -505,22 +465,19 @@
     sec.innerHTML=`<div class="ic-ext-row">
       <div class="ic-ext-info">
         <span class="ic-ext-name">iCost</span>
-        <span class="ic-ext-sub">我的账本 · 收支记录</span>
+        <span class="ic-ext-sub">Simple Minimalist Ledger</span>
       </div>
-      <button class="ic-ext-btn" id="ic-panel-toggle">打开 · Open</button>
+      <button class="ic-ext-btn" id="ic-panel-toggle">打开账本</button>
     </div>`;
     target.prepend(sec);
     document.getElementById('ic-panel-toggle').addEventListener('click',toggleWin);
   }
 
-  /* ── mount ───────────────────────────────────────── */
   function mount(){
     if(document.getElementById('ic-win')) return;
     const w=buildWin(); document.body.appendChild(w);
     restorePos(w); enableDrag(w);
-
     document.getElementById('ic-x').addEventListener('click',closeWin);
-
     document.getElementById('ic-rechd').addEventListener('click',e=>{
       if(e.target.closest('.ic-month-btn')||e.target.closest('.ic-month-label')) return;
       const c=getCol(); c.records=!c.records;
@@ -532,7 +489,6 @@
     document.getElementById('ic-month-next').addEventListener('click',e=>{
       e.stopPropagation(); curMonth=nextMonth(curMonth); render();
     });
-
     document.getElementById('ic-tb-exp').addEventListener('click',()=>setType('expense'));
     document.getElementById('ic-tb-inc').addEventListener('click',()=>setType('income'));
     document.getElementById('ic-addbtn').addEventListener('click',addRecord);
@@ -540,17 +496,14 @@
     document.getElementById('ic-share-cancel').addEventListener('click',cancelShare);
     document.getElementById('ic-budget-set-btn').addEventListener('click',e=>{ e.stopPropagation(); openBudgetInput(); });
     document.getElementById('ic-budget-set-btn2').addEventListener('click',e=>{ e.stopPropagation(); openBudgetInput(); });
-
     renderTags();
   }
 
-  /* ── init — 延迟挂载，绝不阻塞页面加载 ─────────────── */
   function init(){
     try{ mount(); }      catch(e){ console.warn('[iCost] mount:',e); }
     try{ injectPanel(); }catch(e){ console.warn('[iCost] panel:',e); }
   }
 
-  // 三重延迟，确保酒馆加载完毕后才插入，任何一次成功即可
   const D=[1200,3500,7000];
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',()=>D.forEach(d=>setTimeout(safe(init),d)));
