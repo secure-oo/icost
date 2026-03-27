@@ -1,10 +1,6 @@
-// iCost · 珍珠账本 v6.2 — 修复iOS点击判定与闪退优化
+// iCost · 珍珠账本 v6.2 — 增强兼容性版
 (function () {
   'use strict';
-
-  // 增加一个“锁”，确保程序只初始化一次，防止多次加载导致手机闪退
-  if (window.__icost_initialized) return;
-  window.__icost_initialized = true;
 
   const REC_KEY = 'icost_records_v1';
   const POS_KEY = 'icost_pos_v1';
@@ -13,17 +9,20 @@
   let winVisible = false;
   let editingId  = null;
 
+  /* ── 存储逻辑 ── */
   function load()  { try { return JSON.parse(localStorage.getItem(REC_KEY)||'[]'); } catch(e){return[];} }
   function save(r) { localStorage.setItem(REC_KEY, JSON.stringify(r)); }
   function uid()   { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
   function fmt(iso){ const d=new Date(iso); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
   function getCol(){ try{return JSON.parse(localStorage.getItem(COL_KEY)||'{}');}catch(e){return{};} }
 
+  /* ── 构建窗口 ── */
   function buildWin(){
+    if(document.getElementById('ic-win')) return document.getElementById('ic-win');
     const w=document.createElement('div');
     w.id='ic-win';
     w.innerHTML=`
-      <div id="ic-bar" style="touch-action: none;">
+      <div id="ic-bar">
         <div class="ic-titles">
           <span class="ic-cn">iCost</span>
           <span class="ic-en" id="ic-en-sub">珍珠账本</span>
@@ -74,10 +73,11 @@
         </div>
         <div id="ic-list-wrap"><div id="ic-list"></div></div>
         <div class="ic-foot">
-          <input id="ic-share-note" class="ic-share-note" type="text" placeholder="加一句话给爸爸（可选）…" maxlength="100">
-          <button class="ic-share" id="ic-share">📤 发给爸爸看 · Share to Chat</button>
+          <input id="ic-share-note" class="ic-share-note" type="text" placeholder="给爸爸留言（可选）…" maxlength="100">
+          <button class="ic-share" id="ic-share">📤 发送账单 · Share</button>
         </div>
       </div>`;
+    document.body.appendChild(w);
     return w;
   }
 
@@ -103,70 +103,54 @@
     bel.textContent=(bal<0?'-¥':'¥')+Math.abs(bal).toFixed(2);
     bel.className='ic-sval '+(bal>=0?'ic-green':'ic-red');
     document.getElementById('ic-cnt').textContent=`${recs.length} 条`;
-    if(!recs.length){ list.innerHTML=`<p class="ic-empty">还没有记录 · No records yet</p>`; return; }
+
+    if(!recs.length){ list.innerHTML=`<p class="ic-empty">还没有记录</p>`; return; }
     list.innerHTML=[...recs].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`
       <div class="ic-row ic-row-${r.type}" data-id="${r.id}">
         <div class="ic-row-actions"><button class="ic-edit-action" data-id="${r.id}">编辑</button></div>
         <div class="ic-row-content">
           <div class="ic-rl"><span class="ic-tag ic-tag-${r.type}">${r.type==='income'?'收入':'支出'}</span><span class="ic-rmk">${r.note||'—'}</span></div>
-          <div class="ic-rr">
-            <span class="ic-ra ic-${r.type}">${r.type==='income'?'+':'-'}¥${Number(r.amount).toFixed(2)}</span>
-            <span class="ic-rd">${fmt(r.date)}</span>
-            <button class="ic-del" data-id="${r.id}">×</button>
-          </div>
+          <div class="ic-rr"><span class="ic-ra ic-${r.type}">${r.type==='income'?'+':'-'}¥${Number(r.amount).toFixed(2)}</span><button class="ic-del" data-id="${r.id}">×</button></div>
         </div>
       </div>`).join('');
+
     list.querySelectorAll('.ic-row').forEach(row=>attachSwipe(row));
     list.querySelectorAll('.ic-del').forEach(b=>{
-      b.onclick=e=>{
-        e.stopPropagation();
-        if(editingId===b.dataset.id) cancelEdit();
-        save(load().filter(r=>r.id!==b.dataset.id));
-        render();
-      };
+      b.onclick=(e)=>{ e.stopPropagation(); if(editingId===b.dataset.id) cancelEdit(); save(load().filter(r=>r.id!==b.dataset.id)); render(); };
     });
     list.querySelectorAll('.ic-edit-action').forEach(b=>{
-      b.onclick=e=>{ e.stopPropagation(); startEdit(b.dataset.id); };
+      b.onclick=(e)=>{ e.stopPropagation(); startEdit(b.dataset.id); };
     });
   }
 
   function attachSwipe(row){
-    const content=row.querySelector('.ic-row-content');
-    if(!content) return;
-    let startX=0, startY=0, active=false, revealed=false;
-    content.ontouchstart=e=>{ const t=e.touches[0]; startX=t.clientX; startY=t.clientY; active=true; };
-    content.ontouchmove=e=>{
+    const content=row.querySelector('.ic-row-content'); if(!content) return;
+    let startX=0, active=false, revealed=false;
+    content.ontouchstart=(e)=>{ startX=e.touches[0].clientX; active=true; };
+    content.ontouchmove=(e)=>{
       if(!active) return;
-      const t=e.touches[0];
-      const dx=t.clientX-startX;
-      const dy=Math.abs(t.clientY-startY);
-      if(dy>12){ active=false; return; }
-      if(Math.abs(dx)<4) return;
-      const shift=revealed ? Math.min(0,-68+dx) : Math.max(-68,dx<0?dx:0);
-      content.style.transform=`translateX(${shift}px)`;
+      const dx=e.touches[0].clientX-startX;
+      if(dx<-10 || (revealed && dx>10)) content.style.transform=`translateX(${revealed?Math.min(0,-68+dx):Math.max(-68,dx)}px)`;
     };
     content.ontouchend=()=>{
-      if(!active) return; active=false;
-      const cur=parseFloat(content.style.transform.replace('translateX(','').replace(')',''))||0;
-      if(cur<-34){
-        content.style.transform='translateX(-68px)'; revealed=true;
-        document.querySelectorAll('#ic-list .ic-row-content').forEach(c=>{ if(c!==content) c.style.transform='translateX(0)'; });
-      } else { content.style.transform='translateX(0)'; revealed=false; }
+      active=false;
+      const cur=parseFloat(content.style.transform.replace('translateX(',''))||0;
+      if(cur<-34){ content.style.transform='translateX(-68px)'; revealed=true; }
+      else { content.style.transform='translateX(0)'; revealed=false; }
     };
   }
 
   function startEdit(id){
     const rec=load().find(r=>r.id===id); if(!rec) return;
     editingId=id;
-    document.getElementById('ic-body').scrollTo({top:0,behavior:'smooth'});
     document.getElementById('ic-amt').value=rec.amount;
     document.getElementById('ic-note').value=rec.note;
     setType(rec.type);
     const btn=document.getElementById('ic-addbtn');
     btn.textContent='保存修改 · Save';
     btn.classList.add('ic-addbtn-edit');
-    document.getElementById('ic-amt').focus();
   }
+
   function cancelEdit(){
     editingId=null;
     document.getElementById('ic-amt').value='';
@@ -177,8 +161,7 @@
   }
 
   function addRecord(){
-    const ae=document.getElementById('ic-amt');
-    const ne=document.getElementById('ic-note');
+    const ae=document.getElementById('ic-amt'), ne=document.getElementById('ic-note');
     const amt=parseFloat(ae.value);
     if(!amt||amt<=0){ ae.classList.add('ic-shake'); setTimeout(()=>ae.classList.remove('ic-shake'),500); return; }
     let recs=load();
@@ -190,136 +173,107 @@
     }
     save(recs); ae.value=''; ne.value='';
     const btn=document.getElementById('ic-addbtn');
-    btn.textContent='已保存 ✓'; btn.classList.remove('ic-addbtn-edit'); btn.classList.add('ic-addbtn-ok');
-    setTimeout(()=>{ btn.textContent='记录 · Add'; btn.classList.remove('ic-addbtn-ok'); },1500);
-    render();
+    btn.textContent='已保存 ✓';
+    setTimeout(()=>{ btn.textContent='记录 · Add'; btn.classList.remove('ic-addbtn-edit'); render(); },800);
   }
 
   function applyCapsule(){
-    const c=getCol();
-    const body=document.getElementById('ic-body'), hint=document.getElementById('ic-hint'), sub=document.getElementById('ic-en-sub'), win=document.getElementById('ic-win');
-    if(!body) return;
-    if(c.window){
-      body.style.display='none'; win.classList.add('ic-capsule');
-      if(hint) hint.textContent='▴'; if(sub) sub.style.display='none';
-    } else {
-      body.style.display=''; win.classList.remove('ic-capsule');
-      if(hint) hint.textContent='▾'; if(sub) sub.style.display='';
-    }
-  }
-  function applyRecCollapse(){
-    const c=getCol();
-    const wrap=document.getElementById('ic-list-wrap'), arr=document.getElementById('ic-rec-arrow');
-    if(!wrap) return;
-    wrap.style.display=c.records?'none':'';
-    if(arr) arr.textContent=c.records?'▸':'▾';
+    const c=getCol(), body=document.getElementById('ic-body'), win=document.getElementById('ic-win');
+    if(!body||!win) return;
+    if(c.window){ body.style.display='none'; win.classList.add('ic-capsule'); }
+    else { body.style.display=''; win.classList.remove('ic-capsule'); }
   }
 
   function enableDrag(win){
     const bar=document.getElementById('ic-bar');
-    let dragging=false, ox=0, oy=0, sx=0, sy=0, moved=false;
-
-    const onStart = (e) => {
+    let dragging=false,ox=0,oy=0,sx=0,sy=0,moved=false;
+    const onStart=(e)=>{
       if(e.target.closest('#ic-x')) return;
       dragging=true; moved=false;
       const t=e.touches?e.touches[0]:e;
       sx=t.clientX; sy=t.clientY; ox=win.offsetLeft; oy=win.offsetTop;
     };
-    const onMove = (e) => {
-      if(!dragging) return;
+    const onMove=(e)=>{
+      if(!dragging) return; moved=true;
       const t=e.touches?e.touches[0]:e;
-      const dx=t.clientX-sx, dy=t.clientY-sy;
-      if(!moved && (Math.abs(dx)>5 || Math.abs(dy)>5)) moved=true;
-      if(moved){
-        const nx=Math.max(0,Math.min(ox+dx,window.innerWidth-win.offsetWidth));
-        const ny=Math.max(0,Math.min(oy+dy,window.innerHeight-win.offsetHeight));
-        win.style.left=nx+'px'; win.style.top=ny+'px';
-        win.style.right='auto'; win.style.bottom='auto';
-      }
+      win.style.left=(ox+t.clientX-sx)+'px'; win.style.top=(oy+t.clientY-sy)+'px';
+      win.style.right='auto'; win.style.bottom='auto';
     };
-    const onEnd = () => {
+    const onEnd=()=>{
       if(!dragging) return; dragging=false;
-      if(moved){
-        try{ localStorage.setItem(POS_KEY,JSON.stringify({l:win.style.left,t:win.style.top})); }catch(ex){}
-      } else {
-        const c=getCol(); c.window=!c.window;
-        localStorage.setItem(COL_KEY,JSON.stringify(c)); applyCapsule();
-      }
+      localStorage.setItem(POS_KEY,JSON.stringify({l:win.style.left,t:win.style.top}));
+      if(!moved){ const c=getCol(); c.window=!c.window; localStorage.setItem(COL_KEY,JSON.stringify(c)); applyCapsule(); }
     };
-
-    bar.onmousedown = onStart; bar.ontouchstart = onStart;
-    document.onmousemove = onMove; document.ontouchmove = onMove;
-    document.onmouseup = onEnd; document.ontouchend = onEnd;
+    bar.onmousedown=onStart; bar.ontouchstart=onStart;
+    document.onmousemove=onMove; document.ontouchmove=onMove;
+    document.onmouseup=onEnd; document.ontouchend=onEnd;
   }
 
-  function restorePos(win){
-    try{
-      const p=JSON.parse(localStorage.getItem(POS_KEY)||'null');
-      if(p&&p.l&&p.t){ win.style.left=p.l; win.style.top=p.t; win.style.right='auto'; win.style.bottom='auto'; }
-    }catch(e){}
-  }
-
-  function openWin(){
-    const w=document.getElementById('ic-win'); if(!w) return;
-    winVisible=true; w.style.display='flex';
-    requestAnimationFrame(()=>w.classList.add('ic-visible'));
-    render(); applyCapsule(); applyRecCollapse();
-    const lb=document.getElementById('ic-panel-toggle');
-    if(lb){ lb.textContent='关闭 · Close'; lb.classList.add('ic-ext-btn-open'); }
-  }
-  function closeWin(){
-    const w=document.getElementById('ic-win'); if(!w) return;
-    winVisible=false; w.classList.remove('ic-visible');
-    w.addEventListener('transitionend',()=>{ if(!winVisible) w.style.display='none'; },{once:true});
-    const lb=document.getElementById('ic-panel-toggle');
-    if(lb){ lb.textContent='打开 · Open'; lb.classList.remove('ic-ext-btn-open'); }
-  }
-
-  function share(){
-    const recs=load();
-    const inc=recs.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
-    const exp=recs.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
-    const lines=recs.length ? [...recs].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map(r=>`${fmt(r.date)} ${r.type==='income'?'＋':'－'}¥${r.amount}${r.note?' · '+r.note:''}`).join('\n') : '（暂无记录）';
-    const extra=(document.getElementById('ic-share-note')||{}).value||'';
-    const msg=`【iCost 账单】\n收入 ¥${inc.toFixed(2)} · 支出 ¥${exp.toFixed(2)} · 结余 ¥${(inc-exp).toFixed(2)}\n\n最近记录：\n${lines}${extra?'\n\n'+extra:''}`;
-    const ta=document.querySelector('#send_textarea');
-    if(ta){ ta.value=msg; ta.dispatchEvent(new Event('input',{bubbles:true})); }
-    const sn=document.getElementById('ic-share-note'); if(sn) sn.value='';
-    setTimeout(()=>{ const s=document.querySelector('#send_but'); if(s) s.click(); },120);
-    const btn=document.getElementById('ic-share');
-    btn.textContent='已发送 ✓'; btn.classList.add('ic-share-ok');
-    setTimeout(()=>{ btn.textContent='📤 发给爸爸看 · Share to Chat'; btn.classList.remove('ic-share-ok'); },1800);
-  }
-
-  function injectPanel(){
-    if(document.getElementById('ic-ext-section')) return;
-    const target=document.getElementById('extensions_settings'); if(!target) return;
-    const sec=document.createElement('div');
-    sec.id='ic-ext-section'; sec.className='ic-ext-section';
-    sec.innerHTML=`<div class="ic-ext-row">
-      <div class="ic-ext-info"><span class="ic-ext-name">iCost</span><span class="ic-ext-sub">珍珠账本 · 收支记录</span></div>
-      <button class="ic-ext-btn" id="ic-panel-toggle">打开 · Open</button>
-    </div>`;
-    target.prepend(sec);
-    document.getElementById('panel-toggle').onclick=()=>winVisible?closeWin():openWin();
+  function toggleWin(){
+    const w=document.getElementById('ic-win');
+    if(!w) { mount(); return; }
+    winVisible = !winVisible;
+    if(winVisible){
+      w.style.display='flex';
+      setTimeout(()=>w.classList.add('ic-visible'),10);
+      render(); applyCapsule();
+    } else {
+      w.classList.remove('ic-visible');
+      setTimeout(()=>{ if(!winVisible) w.style.display='none'; },300);
+    }
   }
 
   function mount(){
-    if(document.getElementById('ic-win')) return;
-    const w=buildWin(); document.body.appendChild(w);
-    restorePos(w); enableDrag(w);
-    document.getElementById('ic-x').onclick=closeWin;
-    document.getElementById('ic-rechd').onclick=()=>{
-      const c=getCol(); c.records=!c.records;
-      localStorage.setItem(COL_KEY,JSON.stringify(c)); applyRecCollapse();
-    };
+    const w=buildWin();
+    try{
+      const p=JSON.parse(localStorage.getItem(POS_KEY));
+      if(p){ w.style.left=p.l; w.style.top=p.t; w.style.right='auto'; w.style.bottom='auto'; }
+    }catch(e){}
+    enableDrag(w);
+    document.getElementById('ic-x').onclick=toggleWin;
     document.getElementById('ic-tb-exp').onclick=()=>setType('expense');
     document.getElementById('ic-tb-inc').onclick=()=>setType('income');
     document.getElementById('ic-addbtn').onclick=addRecord;
-    document.getElementById('ic-share').onclick=share;
+    document.getElementById('ic-rechd').onclick=()=>{
+      const wrap=document.getElementById('ic-list-wrap');
+      wrap.style.display=wrap.style.display==='none'?'':'none';
+    };
+    document.getElementById('ic-share').onclick=()=>{
+       const recs=load();
+       const inc=recs.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
+       const exp=recs.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
+       const msg=`【iCost 账单】\n收入 ¥${inc.toFixed(2)} / 支出 ¥${exp.toFixed(2)}\n结余 ¥${(inc-exp).toFixed(2)}`;
+       const ta=document.querySelector('#send_textarea');
+       if(ta){ ta.value=msg; ta.dispatchEvent(new Event('input',{bubbles:true})); }
+       setTimeout(()=>{ document.querySelector('#send_but')?.click(); },150);
+    };
   }
 
-  function init(){ try{ mount(); injectPanel(); }catch(e){} }
-  // 即使脚本被加载多次，上面的 window.__icost_initialized 也会拦住它
-  setTimeout(init, 500);
+  // 这里的 injectPanel 增加了“自动浮动按钮”逻辑
+  function injectPanel(){
+    if(document.getElementById('ic-launcher')) return;
+    const target=document.getElementById('extensions_settings');
+    if(target){
+      // 如果找到了设置面板，嵌入到里面
+      const sec=document.createElement('div');
+      sec.className='ic-ext-section';
+      sec.innerHTML=`<div class="ic-ext-row"><span>iCost 珍珠账本</span><button class="ic-ext-btn" id="ic-panel-toggle">打开/关闭</button></div>`;
+      target.prepend(sec);
+      document.getElementById('ic-panel-toggle').onclick=toggleWin;
+    } else {
+      // 如果没找到面板，在屏幕右侧创建一个固定的黄色小按钮
+      const btn=document.createElement('div');
+      btn.id='ic-launcher';
+      btn.innerHTML='💰';
+      btn.title='打开珍珠账本';
+      btn.onclick=toggleWin;
+      document.body.appendChild(btn);
+    }
+  }
+
+  function init(){ mount(); injectPanel(); }
+  if(document.readyState==='complete') init();
+  else window.addEventListener('load', init);
+  // 多试几次确保加载
+  [1000, 3000].forEach(t => setTimeout(init, t));
 })();
