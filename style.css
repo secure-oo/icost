@@ -1,44 +1,45 @@
+/* 导入现代字体，如果加载失败会自动降级到无衬线系统字体 */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
   --ic-bg:        #FFFFFF;
-  --ic-cream:     #F9F9F7;
+  --ic-cream:     #F9F9F7; /* MUJI 风格的浅米色背景 */
   --ic-cream2:    #F2F1ED;
   --ic-cream3:    #E5E3DB;
-  --ic-brown:     #4A463F;
+  --ic-brown:     #4A463F; /* 柔和的炭灰色，代替纯黑 */
   --ic-brown2:    #757066;
   --ic-brown3:    #A8A499;
   --ic-brown4:    #D1CDC2;
-  --ic-green:     #5E7A5E;
+  --ic-green:     #5E7A5E; /* 莫兰迪绿 */
   --ic-green-bg:  #F0F4F0;
-  --ic-red:       #A66464;
+  --ic-red:       #A66464; /* 莫兰迪红 */
   --ic-red-bg:    #F9F2F2;
   --ic-sage:      #9EB19E;
   --ic-rose:      #C9A7A7;
   --ic-shadow:    rgba(0,0,0,0.06);
-  --ic-font:      'Outfit', sans-serif;
+  --ic-font:      'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --ic-w:         310px;
   --ic-z:         99999;
 }
 
-/* ── Extension Panel ── */
+/* ── 扩展设置面板 (防御性：确保按钮可点击) ── */
 .ic-ext-section {
   background:var(--ic-cream); border:1px solid var(--ic-cream3);
   border-radius:14px; margin-bottom:12px;
 }
-.ic-ext-row { display:flex; align-items:center; justify-content:space-between; padding:14px; }
+.ic-ext-row { display:flex; align-items:center; justify-content:space-between; padding:14px; gap:10px; }
 .ic-ext-info { display:flex; flex-direction:column; }
 .ic-ext-name { font-family:var(--ic-font); font-size:16px; font-weight:600; color:var(--ic-brown); }
 .ic-ext-sub  { font-family:var(--ic-font); font-size:11px; font-weight:400; color:var(--ic-brown3); }
 .ic-ext-btn {
   font-family:var(--ic-font); font-size:12px; font-weight:600;
   background:white; color:var(--ic-brown); border:1px solid var(--ic-brown3);
-  border-radius:8px; padding:6px 14px; cursor:pointer; transition:all .2s;
+  border-radius:8px; padding:6px 14px; cursor:pointer; transition:all .2s; flex-shrink:0;
 }
 .ic-ext-btn:hover { background:var(--ic-brown); color:white; border-color:var(--ic-brown); }
 .ic-ext-btn.ic-ext-btn-open { background:var(--ic-brown2); color:white; border-color:var(--ic-brown2); }
 
-/* ── Main Window ── */
+/* ── 主悬浮窗口 (iOS 风格：圆角与阴影) ── */
 #ic-win {
   position:fixed; top:60px; right:20px;
   width:var(--ic-w); max-width:94vw; max-height:82vh;
@@ -54,17 +55,18 @@
 #ic-bar {
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 18px; cursor:grab; background:white;
-  border-bottom:1px solid var(--ic-cream);
+  border-bottom:1px solid var(--ic-cream); flex-shrink:0;
 }
-.ic-titles { display:flex; flex-direction:column; }
+.ic-titles { display:flex; flex-direction:column; pointer-events:none; }
 .ic-cn { font-size:16px; font-weight:700; color:var(--ic-brown); }
 .ic-en { font-size:10px; font-weight:400; color:var(--ic-brown3); text-transform:uppercase; letter-spacing:0.05em; }
 #ic-x {
   width:26px; height:26px; border-radius:50%; border:none;
   background:var(--ic-cream2); color:var(--ic-brown2); font-size:10px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
 }
 
-/* ── MUJI Summary Card (The Big Change) ── */
+/* ── 顶部卡片 (MUJI 风格：清爽干净) ── */
 .ic-summary {
   display:flex; flex-direction:column; align-items:center;
   margin:15px; padding:20px 15px; gap:18px;
@@ -91,27 +93,8 @@
 .ic-sum-sub-label { font-size:10px; color:var(--ic-brown3); margin-bottom:2px; }
 .ic-sum-sub-val { font-size:15px; font-weight:600; }
 
-.ic-green { color:var(--ic-green); }
-.ic-red { color:var(--ic-red); }
-
-/* ── Budget Bar ── */
-.ic-budget-bar-wrap { width:100%; display:flex; flex-direction:column; gap:6px; }
-.ic-budget-bar-track { height:4px; background:var(--ic-cream3); border-radius:2px; overflow:hidden; }
-.ic-budget-bar-fill { height:100%; transition:width 0.4s; }
-.ic-bud-green { background:var(--ic-sage); }
-.ic-bud-yellow { background:#E2C48E; }
-.ic-bud-red { background:var(--ic-rose); }
-.ic-budget-label { font-size:10px; color:var(--ic-brown3); }
-.ic-budget-set-btn { 
-  align-self: flex-end; font-size:10px; background:transparent; border:none; 
-  color:var(--ic-brown2); cursor:pointer; text-decoration:underline;
-}
-.ic-budget-entry-btn {
-  background:white; border:1px dashed var(--ic-brown4); color:var(--ic-brown2);
-  border-radius:10px; padding:6px 20px; font-size:11px; cursor:pointer;
-}
-
-/* ── Form & Inputs ── */
+/* ── 列表、表单等基础样式 ── */
+#ic-body { flex:1; overflow-y:auto; overscroll-behavior:contain; }
 .ic-form { padding:15px; border-top:1px solid var(--ic-cream); }
 .ic-trow { display:flex; gap:8px; margin-bottom:12px; }
 .ic-tb {
@@ -136,11 +119,12 @@
   box-sizing:border-box; margin-bottom:12px;
 }
 
-/* ── Minimalist Chips ── */
+/* 标签样式 (MUJI简约) */
 .ic-tags-wrap { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:15px; }
 .ic-chip {
   background:white; border:1px solid var(--ic-brown4); border-radius:8px;
   padding:5px 12px; font-size:11px; color:var(--ic-brown2); cursor:pointer;
+  transition:all 0.15s;
 }
 .ic-chip-active { background:var(--ic-brown); border-color:var(--ic-brown); color:white; }
 .ic-chip-add { border-style:dashed; }
@@ -151,39 +135,45 @@
 .ic-addbtn {
   width:100%; background:var(--ic-brown); color:white; border:none;
   border-radius:12px; padding:12px; font-size:14px; font-weight:600; cursor:pointer;
+  transition:all 0.2s;
 }
+.ic-addbtn:hover { opacity:0.9; }
 .ic-addbtn-ok { background:var(--ic-green); }
 
-/* ── Records List ── */
-.ic-rechd { display:flex; justify-content:space-between; padding:15px; align-items:center; }
-.ic-month-label { font-weight:700; font-size:13px; color:var(--ic-brown); }
-.ic-month-btn { background:none; border:none; font-size:18px; color:var(--ic-brown3); cursor:pointer; }
-.ic-cnt { font-size:11px; color:var(--ic-brown3); }
-
-#ic-list { padding:0 15px 15px; }
+/* 记录行 (侧滑删除逻辑在此) */
+.ic-row { position:relative; overflow:hidden; margin-bottom:8px; }
 .ic-row-content {
   background:white; border:1px solid var(--ic-cream); border-radius:14px;
   padding:12px; display:flex; justify-content:space-between; align-items:center;
-  margin-bottom:8px; transition:transform 0.2s;
+  position:relative; z-index:2; transition:transform 0.2s ease-out;
 }
-.ic-rl { display:flex; gap:10px; align-items:center; }
+.ic-row-actions {
+  position:absolute; right:0; top:0; bottom:0; z-index:1;
+  display:flex; align-items:center; padding-right:10px;
+}
+.ic-edit-action {
+  background:var(--ic-brown); color:white; border:none; border-radius:8px;
+  padding:6px 12px; font-size:11px; cursor:pointer;
+}
+
 .ic-type-dot {
   width:32px; height:32px; border-radius:10px; font-size:11px;
-  display:flex; align-items:center; justify-content:center;
+  display:flex; align-items:center; justify-content:center; margin-right:10px;
 }
 .ic-dot-expense { background:var(--ic-red-bg); color:var(--ic-red); }
 .ic-dot-income { background:var(--ic-green-bg); color:var(--ic-green); }
-.ic-rmk { font-size:13px; font-weight:500; color:var(--ic-brown); }
+
 .ic-ra { font-size:14px; font-weight:700; }
-.ic-rd { font-size:10px; color:var(--ic-brown3); margin-right:8px; }
+.ic-del { background:none; border:none; color:var(--ic-brown4); font-size:16px; cursor:pointer; margin-left:10px; }
 
-/* ── Footer ── */
-.ic-foot { padding:15px; }
-.ic-share {
-  width:100%; background:var(--ic-cream2); border:none; color:var(--ic-brown);
-  padding:12px; border-radius:12px; font-weight:600; cursor:pointer;
-}
-.ic-share-confirm { background:var(--ic-brown); color:white; }
+/* 预算条 */
+.ic-budget-bar-wrap { width:100%; display:flex; flex-direction:column; gap:6px; }
+.ic-budget-bar-track { height:4px; background:var(--ic-cream3); border-radius:2px; overflow:hidden; }
+.ic-budget-bar-fill { height:100%; transition:width 0.4s; }
+.ic-bud-green { background:var(--ic-sage); }
+.ic-bud-yellow { background:#E2C48E; }
+.ic-bud-red { background:var(--ic-rose); }
 
+/* 动画部分 (功能性保留) */
 @keyframes ic-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
 .ic-shake { animation:ic-shake 0.3s ease; border-color:var(--ic-red)!important; }
