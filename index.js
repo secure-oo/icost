@@ -10,11 +10,11 @@
   let editingId  = null;   // id of record being edited, or null
 
   /* ── storage ──────────────────────────────────────── */
-  function load()  { try { return JSON.parse(localStorage.getItem(REC_KEY)||'[]'); } catch{return[];} }
+  function load()  { try { return JSON.parse(localStorage.getItem(REC_KEY)||'[]'); } catch(e){return[];} }
   function save(r) { localStorage.setItem(REC_KEY, JSON.stringify(r)); }
   function uid()   { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
   function fmt(iso){ const d=new Date(iso); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
-  function getCol(){ try{return JSON.parse(localStorage.getItem(COL_KEY)||'{}');}catch{return{};} }
+  function getCol(){ try{return JSON.parse(localStorage.getItem(COL_KEY)||'{}');}catch(e){return{};} }
   function setCol(k,v){ const c=getCol(); c[k]=v; localStorage.setItem(COL_KEY,JSON.stringify(c)); }
 
   /* ── build window ─────────────────────────────────── */
