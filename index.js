@@ -1,6 +1,10 @@
-// iCost · 珍珠账本  v6.1  — fixed event listener leak
+// iCost · 珍珠账本 v6.2 — 修复iOS点击判定与闪退优化
 (function () {
   'use strict';
+
+  // 增加一个“锁”，确保程序只初始化一次，防止多次加载导致手机闪退
+  if (window.__icost_initialized) return;
+  window.__icost_initialized = true;
 
   const REC_KEY = 'icost_records_v1';
   const POS_KEY = 'icost_pos_v1';
@@ -9,19 +13,17 @@
   let winVisible = false;
   let editingId  = null;
 
-  /* ── storage ──────────────────────────────────────── */
   function load()  { try { return JSON.parse(localStorage.getItem(REC_KEY)||'[]'); } catch(e){return[];} }
   function save(r) { localStorage.setItem(REC_KEY, JSON.stringify(r)); }
   function uid()   { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
   function fmt(iso){ const d=new Date(iso); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
   function getCol(){ try{return JSON.parse(localStorage.getItem(COL_KEY)||'{}');}catch(e){return{};} }
 
-  /* ── build window ─────────────────────────────────── */
   function buildWin(){
     const w=document.createElement('div');
     w.id='ic-win';
     w.innerHTML=`
-      <div id="ic-bar">
+      <div id="ic-bar" style="touch-action: none;">
         <div class="ic-titles">
           <span class="ic-cn">iCost</span>
           <span class="ic-en" id="ic-en-sub">珍珠账本</span>
@@ -79,7 +81,6 @@
     return w;
   }
 
-  /* ── set type ─────────────────────────────────────── */
   function setType(t){
     curType=t;
     const form=document.getElementById('ic-form'); if(!form) return;
@@ -90,11 +91,9 @@
     if(editingId && btn) btn.textContent='保存修改 · Save';
   }
 
-  /* ── render ───────────────────────────────────────── */
   function render(){
     const recs=load();
     const list=document.getElementById('ic-list'); if(!list) return;
-
     const inc=recs.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
     const exp=recs.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
     const bal=inc-exp;
@@ -104,19 +103,12 @@
     bel.textContent=(bal<0?'-¥':'¥')+Math.abs(bal).toFixed(2);
     bel.className='ic-sval '+(bal>=0?'ic-green':'ic-red');
     document.getElementById('ic-cnt').textContent=`${recs.length} 条`;
-
     if(!recs.length){ list.innerHTML=`<p class="ic-empty">还没有记录 · No records yet</p>`; return; }
-
     list.innerHTML=[...recs].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`
       <div class="ic-row ic-row-${r.type}" data-id="${r.id}">
-        <div class="ic-row-actions">
-          <button class="ic-edit-action" data-id="${r.id}">编辑</button>
-        </div>
+        <div class="ic-row-actions"><button class="ic-edit-action" data-id="${r.id}">编辑</button></div>
         <div class="ic-row-content">
-          <div class="ic-rl">
-            <span class="ic-tag ic-tag-${r.type}">${r.type==='income'?'收入':'支出'}</span>
-            <span class="ic-rmk">${r.note||'—'}</span>
-          </div>
+          <div class="ic-rl"><span class="ic-tag ic-tag-${r.type}">${r.type==='income'?'收入':'支出'}</span><span class="ic-rmk">${r.note||'—'}</span></div>
           <div class="ic-rr">
             <span class="ic-ra ic-${r.type}">${r.type==='income'?'+':'-'}¥${Number(r.amount).toFixed(2)}</span>
             <span class="ic-rd">${fmt(r.date)}</span>
@@ -124,65 +116,45 @@
           </div>
         </div>
       </div>`).join('');
-
-    // attach swipe ONLY with element-level touch events (no document listeners)
     list.querySelectorAll('.ic-row').forEach(row=>attachSwipe(row));
-
     list.querySelectorAll('.ic-del').forEach(b=>{
-      b.addEventListener('click',e=>{
+      b.onclick=e=>{
         e.stopPropagation();
         if(editingId===b.dataset.id) cancelEdit();
         save(load().filter(r=>r.id!==b.dataset.id));
         render();
-      });
+      };
     });
     list.querySelectorAll('.ic-edit-action').forEach(b=>{
-      b.addEventListener('click',e=>{ e.stopPropagation(); startEdit(b.dataset.id); });
+      b.onclick=e=>{ e.stopPropagation(); startEdit(b.dataset.id); };
     });
   }
 
-  /* ── swipe — ONLY element-level listeners, no document ── */
   function attachSwipe(row){
     const content=row.querySelector('.ic-row-content');
     if(!content) return;
     let startX=0, startY=0, active=false, revealed=false;
-
-    content.addEventListener('touchstart',e=>{
-      const t=e.touches[0];
-      startX=t.clientX; startY=t.clientY; active=true;
-    },{passive:true});
-
-    content.addEventListener('touchmove',e=>{
+    content.ontouchstart=e=>{ const t=e.touches[0]; startX=t.clientX; startY=t.clientY; active=true; };
+    content.ontouchmove=e=>{
       if(!active) return;
       const t=e.touches[0];
       const dx=t.clientX-startX;
       const dy=Math.abs(t.clientY-startY);
-      if(dy>12){ active=false; return; }          // vertical scroll — bail out
-      if(Math.abs(dx)<4) return;                  // too small to act on
+      if(dy>12){ active=false; return; }
+      if(Math.abs(dx)<4) return;
       const shift=revealed ? Math.min(0,-68+dx) : Math.max(-68,dx<0?dx:0);
       content.style.transform=`translateX(${shift}px)`;
-      // only prevent default when clearly horizontal
-      if(Math.abs(dx)>dy) e.preventDefault();
-    },{passive:false});
-
-    content.addEventListener('touchend',()=>{
+    };
+    content.ontouchend=()=>{
       if(!active) return; active=false;
       const cur=parseFloat(content.style.transform.replace('translateX(','').replace(')',''))||0;
       if(cur<-34){
-        content.style.transform='translateX(-68px)';
-        revealed=true;
-        // close siblings
-        document.querySelectorAll('#ic-list .ic-row-content').forEach(c=>{
-          if(c!==content){ c.style.transform='translateX(0)'; }
-        });
-      } else {
-        content.style.transform='translateX(0)';
-        revealed=false;
-      }
-    },{passive:true});
+        content.style.transform='translateX(-68px)'; revealed=true;
+        document.querySelectorAll('#ic-list .ic-row-content').forEach(c=>{ if(c!==content) c.style.transform='translateX(0)'; });
+      } else { content.style.transform='translateX(0)'; revealed=false; }
+    };
   }
 
-  /* ── edit ─────────────────────────────────────────── */
   function startEdit(id){
     const rec=load().find(r=>r.id===id); if(!rec) return;
     editingId=id;
@@ -204,7 +176,6 @@
     btn.classList.remove('ic-addbtn-edit');
   }
 
-  /* ── add / save ───────────────────────────────────── */
   function addRecord(){
     const ae=document.getElementById('ic-amt');
     const ne=document.getElementById('ic-note');
@@ -224,13 +195,9 @@
     render();
   }
 
-  /* ── capsule collapse ─────────────────────────────── */
   function applyCapsule(){
     const c=getCol();
-    const body=document.getElementById('ic-body');
-    const hint=document.getElementById('ic-hint');
-    const sub=document.getElementById('ic-en-sub');
-    const win=document.getElementById('ic-win');
+    const body=document.getElementById('ic-body'), hint=document.getElementById('ic-hint'), sub=document.getElementById('ic-en-sub'), win=document.getElementById('ic-win');
     if(!body) return;
     if(c.window){
       body.style.display='none'; win.classList.add('ic-capsule');
@@ -242,51 +209,47 @@
   }
   function applyRecCollapse(){
     const c=getCol();
-    const wrap=document.getElementById('ic-list-wrap');
-    const arr=document.getElementById('ic-rec-arrow');
+    const wrap=document.getElementById('ic-list-wrap'), arr=document.getElementById('ic-rec-arrow');
     if(!wrap) return;
     wrap.style.display=c.records?'none':'';
     if(arr) arr.textContent=c.records?'▸':'▾';
   }
 
-  /* ── drag — single pair of document listeners ─────── */
   function enableDrag(win){
     const bar=document.getElementById('ic-bar');
-    let dragging=false,ox=0,oy=0,sx=0,sy=0,moved=false;
+    let dragging=false, ox=0, oy=0, sx=0, sy=0, moved=false;
 
-    function onStart(e){
+    const onStart = (e) => {
       if(e.target.closest('#ic-x')) return;
       dragging=true; moved=false;
       const t=e.touches?e.touches[0]:e;
       sx=t.clientX; sy=t.clientY; ox=win.offsetLeft; oy=win.offsetTop;
-    }
-    function onMove(e){
+    };
+    const onMove = (e) => {
       if(!dragging) return;
-      moved=true;
       const t=e.touches?e.touches[0]:e;
-      const nx=Math.max(0,Math.min(ox+t.clientX-sx,window.innerWidth-win.offsetWidth));
-      const ny=Math.max(0,Math.min(oy+t.clientY-sy,window.innerHeight-win.offsetHeight));
-      win.style.left=nx+'px'; win.style.top=ny+'px';
-      win.style.right='auto'; win.style.bottom='auto';
-    }
-    function onEnd(){
-      if(!dragging) return; dragging=false;
-      try{ localStorage.setItem(POS_KEY,JSON.stringify({l:win.style.left,t:win.style.top})); }catch(ex){}
-      if(!moved){
-        const c=getCol(); c.window=!c.window;
-        localStorage.setItem(COL_KEY,JSON.stringify(c));
-        applyCapsule();
+      const dx=t.clientX-sx, dy=t.clientY-sy;
+      if(!moved && (Math.abs(dx)>5 || Math.abs(dy)>5)) moved=true;
+      if(moved){
+        const nx=Math.max(0,Math.min(ox+dx,window.innerWidth-win.offsetWidth));
+        const ny=Math.max(0,Math.min(oy+dy,window.innerHeight-win.offsetHeight));
+        win.style.left=nx+'px'; win.style.top=ny+'px';
+        win.style.right='auto'; win.style.bottom='auto';
       }
-    }
+    };
+    const onEnd = () => {
+      if(!dragging) return; dragging=false;
+      if(moved){
+        try{ localStorage.setItem(POS_KEY,JSON.stringify({l:win.style.left,t:win.style.top})); }catch(ex){}
+      } else {
+        const c=getCol(); c.window=!c.window;
+        localStorage.setItem(COL_KEY,JSON.stringify(c)); applyCapsule();
+      }
+    };
 
-    // bar listeners (passive — no preventDefault needed here)
-    bar.addEventListener('mousedown',  onStart, {passive:true});
-    bar.addEventListener('touchstart', onStart, {passive:true});
-    // document listeners — passive so they never block scrolling
-    document.addEventListener('mousemove', onMove, {passive:true});
-    document.addEventListener('touchmove', onMove, {passive:true});
-    document.addEventListener('mouseup',   onEnd,  {passive:true});
-    document.addEventListener('touchend',  onEnd,  {passive:true});
+    bar.onmousedown = onStart; bar.ontouchstart = onStart;
+    document.onmousemove = onMove; document.ontouchmove = onMove;
+    document.onmouseup = onEnd; document.ontouchend = onEnd;
   }
 
   function restorePos(win){
@@ -296,7 +259,6 @@
     }catch(e){}
   }
 
-  /* ── open / close ─────────────────────────────────── */
   function openWin(){
     const w=document.getElementById('ic-win'); if(!w) return;
     winVisible=true; w.style.display='flex';
@@ -312,17 +274,12 @@
     const lb=document.getElementById('ic-panel-toggle');
     if(lb){ lb.textContent='打开 · Open'; lb.classList.remove('ic-ext-btn-open'); }
   }
-  function toggleWin(){ winVisible?closeWin():openWin(); }
 
-  /* ── share ────────────────────────────────────────── */
   function share(){
     const recs=load();
     const inc=recs.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
     const exp=recs.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
-    const lines=recs.length
-      ?[...recs].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5)
-          .map(r=>`${fmt(r.date)} ${r.type==='income'?'＋':'－'}¥${r.amount}${r.note?' · '+r.note:''}`).join('\n')
-      :'（暂无记录）';
+    const lines=recs.length ? [...recs].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map(r=>`${fmt(r.date)} ${r.type==='income'?'＋':'－'}¥${r.amount}${r.note?' · '+r.note:''}`).join('\n') : '（暂无记录）';
     const extra=(document.getElementById('ic-share-note')||{}).value||'';
     const msg=`【iCost 账单】\n收入 ¥${inc.toFixed(2)} · 支出 ¥${exp.toFixed(2)} · 结余 ¥${(inc-exp).toFixed(2)}\n\n最近记录：\n${lines}${extra?'\n\n'+extra:''}`;
     const ta=document.querySelector('#send_textarea');
@@ -334,44 +291,35 @@
     setTimeout(()=>{ btn.textContent='📤 发给爸爸看 · Share to Chat'; btn.classList.remove('ic-share-ok'); },1800);
   }
 
-  /* ── extension panel entry ────────────────────────── */
   function injectPanel(){
     if(document.getElementById('ic-ext-section')) return;
     const target=document.getElementById('extensions_settings'); if(!target) return;
     const sec=document.createElement('div');
     sec.id='ic-ext-section'; sec.className='ic-ext-section';
     sec.innerHTML=`<div class="ic-ext-row">
-      <div class="ic-ext-info">
-        <span class="ic-ext-name">iCost</span>
-        <span class="ic-ext-sub">珍珠账本 · 收支记录</span>
-      </div>
+      <div class="ic-ext-info"><span class="ic-ext-name">iCost</span><span class="ic-ext-sub">珍珠账本 · 收支记录</span></div>
       <button class="ic-ext-btn" id="ic-panel-toggle">打开 · Open</button>
     </div>`;
     target.prepend(sec);
-    document.getElementById('ic-panel-toggle').addEventListener('click',toggleWin);
+    document.getElementById('panel-toggle').onclick=()=>winVisible?closeWin():openWin();
   }
 
-  /* ── mount ────────────────────────────────────────── */
   function mount(){
     if(document.getElementById('ic-win')) return;
     const w=buildWin(); document.body.appendChild(w);
     restorePos(w); enableDrag(w);
-    document.getElementById('ic-x').addEventListener('click',closeWin);
-    document.getElementById('ic-rechd').addEventListener('click',()=>{
+    document.getElementById('ic-x').onclick=closeWin;
+    document.getElementById('ic-rechd').onclick=()=>{
       const c=getCol(); c.records=!c.records;
       localStorage.setItem(COL_KEY,JSON.stringify(c)); applyRecCollapse();
-    });
-    document.getElementById('ic-tb-exp').addEventListener('click',()=>setType('expense'));
-    document.getElementById('ic-tb-inc').addEventListener('click',()=>setType('income'));
-    document.getElementById('ic-addbtn').addEventListener('click',addRecord);
-    document.getElementById('ic-share').addEventListener('click',share);
+    };
+    document.getElementById('ic-tb-exp').onclick=()=>setType('expense');
+    document.getElementById('ic-tb-inc').onclick=()=>setType('income');
+    document.getElementById('ic-addbtn').onclick=addRecord;
+    document.getElementById('ic-share').onclick=share;
   }
 
-  function init(){ try{ mount(); injectPanel(); }catch(e){ console.warn('[iCost] init error',e); } }
-  const D=[900,2500,5000];
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',()=>D.forEach(d=>setTimeout(init,d)));
-  } else {
-    D.forEach(d=>setTimeout(init,d));
-  }
+  function init(){ try{ mount(); injectPanel(); }catch(e){} }
+  // 即使脚本被加载多次，上面的 window.__icost_initialized 也会拦住它
+  setTimeout(init, 500);
 })();
