@@ -306,7 +306,7 @@
     }
     function end(e){
       if(!dragging) return; dragging=false;
-      try{ localStorage.setItem(POS_KEY,JSON.stringify({l:win.style.left,t:win.style.top})); }catch{}
+      try{ localStorage.setItem(POS_KEY,JSON.stringify({l:win.style.left,t:win.style.top})); }catch(e){}
       if(!moved){ const c=getCol(); c.window=!c.window; localStorage.setItem(COL_KEY,JSON.stringify(c)); applyCapsule(); }
     }
     bar.addEventListener('mousedown', start,{passive:false});
