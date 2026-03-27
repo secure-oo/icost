@@ -1,21 +1,21 @@
 // iCost · 珍珠账本  v6.1  — fixed event listener leak
 (function () {
   'use strict';
-
+ 
   const REC_KEY = 'icost_records_v1';
   const POS_KEY = 'icost_pos_v1';
   const COL_KEY = 'icost_collapsed_v1';
   let curType   = 'expense';
   let winVisible = false;
   let editingId  = null;
-
+ 
   /* ── storage ──────────────────────────────────────── */
   function load()  { try { return JSON.parse(localStorage.getItem(REC_KEY)||'[]'); } catch(e){return[];} }
   function save(r) { localStorage.setItem(REC_KEY, JSON.stringify(r)); }
   function uid()   { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
   function fmt(iso){ const d=new Date(iso); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
   function getCol(){ try{return JSON.parse(localStorage.getItem(COL_KEY)||'{}');}catch(e){return{};} }
-
+ 
   /* ── build window ─────────────────────────────────── */
   function buildWin(){
     const w=document.createElement('div');
@@ -78,7 +78,7 @@
       </div>`;
     return w;
   }
-
+ 
   /* ── set type ─────────────────────────────────────── */
   function setType(t){
     curType=t;
@@ -89,12 +89,12 @@
     const btn=document.getElementById('ic-addbtn');
     if(editingId && btn) btn.textContent='保存修改 · Save';
   }
-
+ 
   /* ── render ───────────────────────────────────────── */
   function render(){
     const recs=load();
     const list=document.getElementById('ic-list'); if(!list) return;
-
+ 
     const inc=recs.filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
     const exp=recs.filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
     const bal=inc-exp;
@@ -104,9 +104,9 @@
     bel.textContent=(bal<0?'-¥':'¥')+Math.abs(bal).toFixed(2);
     bel.className='ic-sval '+(bal>=0?'ic-green':'ic-red');
     document.getElementById('ic-cnt').textContent=`${recs.length} 条`;
-
+ 
     if(!recs.length){ list.innerHTML=`<p class="ic-empty">还没有记录 · No records yet</p>`; return; }
-
+ 
     list.innerHTML=[...recs].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`
       <div class="ic-row ic-row-${r.type}" data-id="${r.id}">
         <div class="ic-row-actions">
@@ -124,10 +124,10 @@
           </div>
         </div>
       </div>`).join('');
-
+ 
     // attach swipe ONLY with element-level touch events (no document listeners)
     list.querySelectorAll('.ic-row').forEach(row=>attachSwipe(row));
-
+ 
     list.querySelectorAll('.ic-del').forEach(b=>{
       b.addEventListener('click',e=>{
         e.stopPropagation();
@@ -140,18 +140,18 @@
       b.addEventListener('click',e=>{ e.stopPropagation(); startEdit(b.dataset.id); });
     });
   }
-
+ 
   /* ── swipe — ONLY element-level listeners, no document ── */
   function attachSwipe(row){
     const content=row.querySelector('.ic-row-content');
     if(!content) return;
     let startX=0, startY=0, active=false, revealed=false;
-
+ 
     content.addEventListener('touchstart',e=>{
       const t=e.touches[0];
       startX=t.clientX; startY=t.clientY; active=true;
     },{passive:true});
-
+ 
     content.addEventListener('touchmove',e=>{
       if(!active) return;
       const t=e.touches[0];
@@ -164,7 +164,7 @@
       // only prevent default when clearly horizontal
       if(Math.abs(dx)>dy) e.preventDefault();
     },{passive:false});
-
+ 
     content.addEventListener('touchend',()=>{
       if(!active) return; active=false;
       const cur=parseFloat(content.style.transform.replace('translateX(','').replace(')',''))||0;
@@ -181,7 +181,7 @@
       }
     },{passive:true});
   }
-
+ 
   /* ── edit ─────────────────────────────────────────── */
   function startEdit(id){
     const rec=load().find(r=>r.id===id); if(!rec) return;
@@ -203,7 +203,7 @@
     btn.textContent='记录 · Add';
     btn.classList.remove('ic-addbtn-edit');
   }
-
+ 
   /* ── add / save ───────────────────────────────────── */
   function addRecord(){
     const ae=document.getElementById('ic-amt');
@@ -223,7 +223,7 @@
     setTimeout(()=>{ btn.textContent='记录 · Add'; btn.classList.remove('ic-addbtn-ok'); },1500);
     render();
   }
-
+ 
   /* ── capsule collapse ─────────────────────────────── */
   function applyCapsule(){
     const c=getCol();
@@ -248,12 +248,12 @@
     wrap.style.display=c.records?'none':'';
     if(arr) arr.textContent=c.records?'▸':'▾';
   }
-
+ 
   /* ── drag — single pair of document listeners ─────── */
   function enableDrag(win){
     const bar=document.getElementById('ic-bar');
     let dragging=false,ox=0,oy=0,sx=0,sy=0,moved=false;
-
+ 
     function onStart(e){
       if(e.target.closest('#ic-x')) return;
       dragging=true; moved=false;
@@ -278,7 +278,7 @@
         applyCapsule();
       }
     }
-
+ 
     // bar listeners (passive — no preventDefault needed here)
     bar.addEventListener('mousedown',  onStart, {passive:true});
     bar.addEventListener('touchstart', onStart, {passive:true});
@@ -288,14 +288,14 @@
     document.addEventListener('mouseup',   onEnd,  {passive:true});
     document.addEventListener('touchend',  onEnd,  {passive:true});
   }
-
+ 
   function restorePos(win){
     try{
       const p=JSON.parse(localStorage.getItem(POS_KEY)||'null');
       if(p&&p.l&&p.t){ win.style.left=p.l; win.style.top=p.t; win.style.right='auto'; win.style.bottom='auto'; }
     }catch(e){}
   }
-
+ 
   /* ── open / close ─────────────────────────────────── */
   function openWin(){
     const w=document.getElementById('ic-win'); if(!w) return;
@@ -313,7 +313,7 @@
     if(lb){ lb.textContent='打开 · Open'; lb.classList.remove('ic-ext-btn-open'); }
   }
   function toggleWin(){ winVisible?closeWin():openWin(); }
-
+ 
   /* ── share ────────────────────────────────────────── */
   function share(){
     const recs=load();
@@ -333,7 +333,7 @@
     btn.textContent='已发送 ✓'; btn.classList.add('ic-share-ok');
     setTimeout(()=>{ btn.textContent='📤 发给爸爸看 · Share to Chat'; btn.classList.remove('ic-share-ok'); },1800);
   }
-
+ 
   /* ── extension panel entry ────────────────────────── */
   function injectPanel(){
     if(document.getElementById('ic-ext-section')) return;
@@ -350,7 +350,7 @@
     target.prepend(sec);
     document.getElementById('ic-panel-toggle').addEventListener('click',toggleWin);
   }
-
+ 
   /* ── mount ────────────────────────────────────────── */
   function mount(){
     if(document.getElementById('ic-win')) return;
@@ -366,7 +366,7 @@
     document.getElementById('ic-addbtn').addEventListener('click',addRecord);
     document.getElementById('ic-share').addEventListener('click',share);
   }
-
+ 
   function init(){ try{ mount(); injectPanel(); }catch(e){ console.warn('[iCost] init error',e); } }
   const D=[900,2500,5000];
   if(document.readyState==='loading'){
