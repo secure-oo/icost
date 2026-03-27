@@ -16,7 +16,7 @@
   const TAG_KEY    = 'icost_tags_v1';
   const BUDGET_KEY = 'icost_budget_v1';
 
-  const DEFAULT_TAGS = ['餐饮','购物','交通','娱乐','日用','医疗'];
+  const DEFAULT_TAGS = ['Food'];
 
   let curType    = 'expense';
   let winVisible = false;
