@@ -9,7 +9,7 @@
   top: 80px;
   z-index: 9500;          /* 比记账本ic-win低一点，避免互相压 */
   width: 360px;
-  max-width: 96vw;
+  max-width: 66vw;
   max-height: 88vh;
   background: #fff;
   border-radius: 16px;
