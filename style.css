@@ -1,0 +1,433 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&display=swap');
+
+/* ═══════════════════════════════════════════════════
+   主窗口 — fixed浮层，默认隐藏，和记账本一样的形式
+═══════════════════════════════════════════════════ */
+#pb-win {
+  position: fixed;
+  right: 20px;
+  top: 80px;
+  z-index: 9500;          /* 比记账本ic-win低一点，避免互相压 */
+  width: 360px;
+  max-width: 96vw;
+  max-height: 88vh;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  display: none;          /* 默认隐藏，toggleWin()控制 */
+  flex-direction: column;
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+  color: #111;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 手机端自适应 */
+@media (max-width: 480px) {
+  #pb-win {
+    width: 94vw;
+    right: 3vw;
+    top: 60px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   标题栏（可拖拽把手）
+═══════════════════════════════════════════════════ */
+#pb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #efefef;
+  background: #fff;
+  flex-shrink: 0;
+  cursor: move;
+  touch-action: none;
+}
+#pb-bar-inner {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.pb-bar-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #111;
+  letter-spacing: 0.02em;
+}
+.pb-bar-sub {
+  font-size: 11px;
+  color: #bbb;
+}
+.pb-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pb-ibtn {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: none; background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #555;
+  font-size: 14px;
+  transition: background 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.pb-ibtn:hover { background: #f2f2f2; }
+
+/* ═══════════════════════════════════════════════════
+   主体（可折叠）
+═══════════════════════════════════════════════════ */
+#pb-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ═══════════════════════════════════════════════════
+   资料卡
+═══════════════════════════════════════════════════ */
+#pb-profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+#pb-avatars-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.pb-card-av {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 0 1.5px #e0e0e0;
+  background: #f0f0f0;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.pb-card-av:first-child { margin-right: -14px; z-index: 1; }
+.pb-card-av:last-child  { z-index: 2; }
+.pb-av-click { cursor: pointer; }
+.pb-av-click:hover { opacity: 0.78; }
+
+/* 通用头像元素 */
+.pb-av {
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f0f0f0;
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+}
+.pb-av.pb-av-lg,
+.pb-card-av .pb-av {
+  width: 100%; height: 100%;
+  border-radius: 0;
+}
+.pb-av img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+.pb-av.pb-av-lg img { border-radius:0; }
+.pb-av-txt { font-size:12px; font-weight:600; color:#666; }
+.pb-av.av-a { background: #e8e8e8; }
+.pb-av.av-b { background: #f2f2f2; }
+.pb-av-gap  { width:26px; flex-shrink:0; }
+
+#pb-pname {
+  font-weight: 700; font-size: 15px; color: #111;
+  margin-bottom: 3px;
+  cursor: pointer;
+  border: 1.5px solid transparent; border-radius: 6px;
+  padding: 1px 7px;
+  transition: border-color 0.15s; outline: none; text-align: center;
+}
+#pb-pname:hover { border-color: #e0e0e0; }
+#pb-pname[contenteditable="true"] { border-color: #111; background: #fafafa; }
+
+#pb-pbio {
+  font-size: 11px; color: #999;
+  cursor: pointer;
+  border: 1.5px solid transparent; border-radius: 6px;
+  padding: 1px 7px; max-width: 240px;
+  line-height: 1.5; text-align: center;
+  transition: border-color 0.15s; outline: none;
+}
+#pb-pbio:hover { border-color: #e0e0e0; }
+#pb-pbio[contenteditable="true"] { border-color: #111; color: #333; background: #fafafa; }
+
+.pb-edit-hint { font-size: 10px; color: #ccc; margin-top: 5px; }
+
+/* ═══════════════════════════════════════════════════
+   消息列表
+═══════════════════════════════════════════════════ */
+#pb-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #fff;
+  overscroll-behavior: contain;
+  min-height: 0;
+  max-height: 380px;
+}
+#pb-messages::-webkit-scrollbar { width: 3px; }
+#pb-messages::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius:2px; }
+
+.pb-time {
+  text-align: center; font-size: 10px; color: #bbb;
+  margin: 8px 0 3px; letter-spacing: 0.03em;
+}
+
+.pb-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 1px;
+}
+.pb-row.sent { flex-direction: row-reverse; }
+
+.pb-bub {
+  max-width: 68%;
+  padding: 8px 13px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  word-break: break-word;
+  white-space: pre-wrap;
+  position: relative;
+  cursor: default;
+  transition: opacity 0.15s;
+  animation: pb-in 0.16s ease;
+}
+.pb-bub:hover { opacity: 0.85; }
+
+.pb-bub.sent { background:#111; color:#fff; border-radius:18px 18px 4px 18px; }
+.pb-bub.recv { background:#f2f2f2; color:#111; border-radius:18px 18px 18px 4px; }
+
+.pb-bub.sent.first  { border-radius:18px 18px 4px 18px; }
+.pb-bub.sent.mid    { border-radius:18px 4px 4px 18px; }
+.pb-bub.sent.last   { border-radius:18px 4px 18px 18px; }
+.pb-bub.sent.solo   { border-radius:18px; }
+.pb-bub.recv.first  { border-radius:18px 18px 18px 4px; }
+.pb-bub.recv.mid    { border-radius:4px 18px 18px 4px; }
+.pb-bub.recv.last   { border-radius:4px 18px 18px 18px; }
+.pb-bub.recv.solo   { border-radius:18px; }
+
+.pb-bub:hover::after {
+  content:'×'; position:absolute; top:-6px; right:-6px;
+  width:15px; height:15px; border-radius:50%;
+  background:#444; color:#fff; font-size:10px;
+  display:flex; align-items:center; justify-content:center;
+  line-height:15px; text-align:center; cursor:pointer;
+}
+.pb-bub.recv:hover::after { right:auto; left:-6px; }
+
+/* ═══════════════════════════════════════════════════
+   打字指示器
+═══════════════════════════════════════════════════ */
+.pb-typing {
+  display: none;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0 10px 6px;
+}
+.pb-typing.active { display: flex; }
+.pb-typing-av {
+  width:26px; height:26px; border-radius:50%;
+  background:#f0f0f0; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; color:#aaa;
+}
+.pb-typing-bub {
+  background:#f2f2f2; border-radius:18px;
+  padding:9px 13px; display:flex; gap:4px; align-items:center;
+}
+.pb-dot {
+  width:5px; height:5px; border-radius:50%; background:#bbb;
+  animation: pb-bounce 1.3s ease-in-out infinite;
+}
+.pb-dot:nth-child(2) { animation-delay:.18s; }
+.pb-dot:nth-child(3) { animation-delay:.36s; }
+@keyframes pb-bounce {
+  0%,60%,100% { transform:translateY(0); opacity:.6; }
+  30%          { transform:translateY(-4px); opacity:1; }
+}
+
+/* ═══════════════════════════════════════════════════
+   输入栏
+═══════════════════════════════════════════════════ */
+#pb-inputbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  padding: 8px 10px;
+  border-top: 1px solid #efefef;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+#pb-ptoggle {
+  width:28px; height:28px; border-radius:50%;
+  border:none; cursor:pointer;
+  font-size:11px; font-weight:700;
+  font-family:'Noto Sans SC',sans-serif;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:all .2s;
+}
+#pb-ptoggle.pearl { background:#f0f0f0; color:#666; }
+#pb-ptoggle.daddy { background:#111; color:#fff; }
+#pb-ptoggle:hover { transform:scale(1.1); }
+
+#pb-input-wrap {
+  flex:1; border:1.5px solid #e8e8e8; border-radius:20px;
+  padding:6px 9px 6px 12px;
+  display:flex; align-items:flex-end; gap:5px;
+  transition:border-color .15s; background:#fff;
+}
+#pb-input-wrap:focus-within { border-color:#999; }
+
+#pb-ta {
+  flex:1; border:none; outline:none; resize:none;
+  font-size:13.5px; font-family:'Noto Sans SC',sans-serif;
+  color:#111; background:transparent;
+  max-height:90px; line-height:1.5;
+}
+#pb-ta::placeholder { color:#ccc; }
+
+#pb-ai-btn {
+  background:none; border:none; cursor:pointer;
+  color:#ccc; padding:2px;
+  display:flex; align-items:center; flex-shrink:0;
+  transition:color .15s;
+}
+#pb-ai-btn:hover { color:#111; }
+
+#pb-send-btn {
+  width:32px; height:32px; border-radius:50%;
+  border:none; background:transparent;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  color:#ccc; flex-shrink:0; padding:0;
+  transition:all .18s;
+}
+#pb-send-btn.active { background:#111; color:#fff; }
+#pb-send-btn.active:hover { background:#333; transform:scale(1.08); }
+
+/* ═══════════════════════════════════════════════════
+   设置面板（绝对覆盖在 pb-win 之上）
+═══════════════════════════════════════════════════ */
+#pb-settings {
+  position:absolute; inset:0;
+  background:#fff; z-index:10;
+  display:none; flex-direction:column;
+  border-radius:16px; overflow:hidden;
+}
+#pb-settings.open { display:flex; }
+
+.pb-s-hd {
+  display:flex; align-items:center; gap:8px;
+  padding:11px 12px; border-bottom:1px solid #efefef;
+  font-weight:700; font-size:14px; color:#111; flex-shrink:0;
+}
+.pb-s-bd {
+  padding:16px 14px;
+  display:flex; flex-direction:column; gap:12px;
+  overflow-y:auto; flex:1;
+}
+.pb-s-sec { font-size:11px; font-weight:700; color:#111; text-transform:uppercase; letter-spacing:.06em; }
+.pb-s-desc { font-size:11px; color:#aaa; line-height:1.6; margin-top:-6px; }
+
+.pb-field label {
+  display:block; font-size:10px; font-weight:600; color:#999;
+  text-transform:uppercase; letter-spacing:.05em; margin-bottom:5px;
+}
+.pb-field input {
+  width:100%; padding:8px 11px;
+  border:1.5px solid #e8e8e8; border-radius:9px;
+  font-size:13px; font-family:'Noto Sans SC',sans-serif;
+  outline:none; color:#111; transition:border-color .15s; box-sizing:border-box;
+}
+.pb-field input:focus        { border-color:#111; }
+.pb-field input::placeholder { color:#ccc; }
+
+.pb-save-btn {
+  padding:9px; border-radius:9px; background:#111; color:#fff;
+  font-size:13px; font-weight:600; border:none; cursor:pointer;
+  font-family:'Noto Sans SC',sans-serif; transition:background .15s;
+}
+.pb-save-btn:hover { background:#333; }
+
+.pb-divider { border:none; border-top:1px solid #f0f0f0; margin:0; }
+
+.pb-danger-btn {
+  padding:9px; border-radius:9px; background:#fff; color:#c00;
+  font-size:13px; font-weight:600; border:1.5px solid #e8e8e8;
+  cursor:pointer; font-family:'Noto Sans SC',sans-serif;
+  transition:border-color .15s;
+}
+.pb-danger-btn:hover { border-color:#c00; }
+
+/* ═══════════════════════════════════════════════════
+   ST 扩展面板入口（和记账本 ic-ext-section 同类）
+═══════════════════════════════════════════════════ */
+.pb-ext-section {
+  padding: 10px 0 6px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 8px;
+}
+.pb-ext-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+.pb-ext-info {
+  display: flex;
+  flex-direction: column;
+}
+.pb-ext-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+.pb-ext-sub {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 1px;
+}
+.pb-ext-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid #111;
+  background: #fff;
+  color: #111;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.pb-ext-btn:hover { background:#111; color:#fff; }
+
+/* ═══════════════════════════════════════════════════
+   动画
+═══════════════════════════════════════════════════ */
+@keyframes pb-in {
+  from { opacity:0; transform:translateY(4px); }
+  to   { opacity:1; transform:translateY(0); }
+}
