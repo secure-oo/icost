@@ -212,7 +212,7 @@
     <div class="pb-field"><label>API Key</label><input id="pb-s-key" type="password" placeholder="sk-..."/></div>
     <button class="pb-save-btn" id="pb-s-save">保存</button>
     <div class="pb-divider"></div>
-    <div class="pb-s-desc">点头像换图 · 点名字/简介编辑 · 双击气泡删除</div>
+    <div class="pb-s-desc">640K followers 208 posts</div>
     <div class="pb-divider"></div>
     <button class="pb-danger-btn" id="pb-s-clear">清空聊天记录</button>
   </div>
@@ -220,7 +220,7 @@
 
 <div id="pb-bar">
   <div id="pb-bar-inner">
-    <span class="pb-bar-name">珍珠湾</span>
+    <span class="pb-bar-name">claudeai</span>
     <span class="pb-bar-sub">· DM</span>
   </div>
   <div class="pb-bar-right">
