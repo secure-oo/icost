@@ -181,7 +181,7 @@
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
   background: #fff;
   overscroll-behavior: contain;
   min-height: 0;
@@ -206,7 +206,7 @@
 .pb-bub {
   max-width: 68%;
   padding: 8px 13px;
-  font-size: 13.5px;
+  font-size: 9px;
   line-height: 1.55;
   word-break: break-word;
   white-space: pre-wrap;
